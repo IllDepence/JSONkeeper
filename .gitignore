@@ -1,0 +1,5 @@
+venv
+*.swp
+__pycache__
+metadata.db
+store
