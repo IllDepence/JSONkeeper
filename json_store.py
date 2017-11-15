@@ -55,7 +55,7 @@ if not os.path.exists(STORE_FOLDER):
 
 
 for code in default_exceptions.keys():
-    """ Make app return exceptions in JSON form.
+    """ Make app return exceptions in JSON form. Also add CORS headers.
 
         Based on http://flask.pocoo.org/snippets/83/ but updated to use
         register_error_handler method.
@@ -65,11 +65,11 @@ for code in default_exceptions.keys():
 
     @app.errorhandler(code)
     def make_json_error(error):
-        response = jsonify(message=str(error))
-        response.status_code = (error.code
-                                if isinstance(error, HTTPException)
-                                else 500)
-        return response
+        resp = jsonify(message=str(error))
+        resp.status_code = (error.code
+                            if isinstance(error, HTTPException)
+                            else 500)
+        return add_CORS_headers(resp)
 
 
 def write_json(request, given_id=None):
@@ -81,7 +81,7 @@ def write_json(request, given_id=None):
 
     json_bytes = request.data
     json_string = json_bytes.decode('utf-8')
-    json_obj = json.loads(json_string)
+    json_obj = json.loads(json_string)  # TODO: mby react on invalid JSON?
     resp = Response(json_string)
     if given_id is not None:
         json_id = given_id
@@ -91,26 +91,47 @@ def write_json(request, given_id=None):
         json_id = hashlib.sha256(bytes(str(random.random()) + json_string,
                                        'utf-8')).hexdigest()
         resp.headers['Location'] = '/{}/{}'.format(API_PATH, json_id)
-        resp.headers['Access-Control-Allow-Origin'] = '*'
-        resp.headers['Access-Control-Expose-Headers'] = 'Location'
 
     with open('{}/{}'.format(STORE_FOLDER, json_id), 'w') as f:
-        json.dump(json_obj, f)
+        f.write(json_string)
 
     resp.headers['Content-Type'] = 'application/json'
 
     return resp
 
 
-def CORS_preflight_response():
+def CORS_preflight_response(request):
     """ Create a response for CORS preflight requests.
     """
 
     resp = Response('')
     resp.headers['Access-Control-Allow-Origin'] = '*'
-    resp.headers['Access-Control-Allow-Methods'] = 'POST,GET,PUT,DELETE'
-    resp.headers['Access-Control-Allow-Headers'] = ('content-type,access-contr'
-                                                    'ol-allow-origin')
+    resp.headers['Access-Control-Allow-Methods'] = ('GET,POST,DELETE,OPTIONS,'
+                                                    'PUT')
+    # ↓ what will actually be available via Access-Control-Expose-Headers
+    allowed_headers = 'Content-Type,Access-Control-Allow-Origin,Location'
+    # ↓ if they ask for something specific we just "comply" to make CORS work
+    if 'Access-Control-Request-Headers' in request.headers:
+        allowed_headers = request.headers.get('Access-Control-Request-Headers')
+    resp.headers['Access-Control-Allow-Headers'] = allowed_headers
+
+    return resp, 200
+
+
+def add_CORS_headers(resp):
+    """ Add CORS headers to a response. This is done even for non CORS requests
+        to keep the code simple and because it doesn't hurt non CORS requests).
+        This method should, however, not be called for CORS preflight requests
+        because they need special treatment.
+    """
+
+    if type(resp) is str:
+        resp = Response(resp)
+    resp.headers['Access-Control-Allow-Origin'] = '*'
+    resp.headers['Access-Control-Max-Age'] = '600'
+    resp.headers['Access-Control-Expose-Headers'] = ('Content-Type,Access-Cont'
+                                                     'rol-Allow-Origin,Locatio'
+                                                     'n')
 
     return resp
 
@@ -130,7 +151,7 @@ def handle_post_request(request):
     db.session.add(json_doc)
     db.session.commit()
 
-    return resp, 201
+    return add_CORS_headers(resp), 201
 
 
 def handle_get_request(request, json_id):
@@ -140,12 +161,11 @@ def handle_get_request(request, json_id):
     json_location = '{}/{}'.format(STORE_FOLDER, json_id)
     if os.path.isfile(json_location):
         with open(json_location, 'r') as f:
-            json_obj = json.load(f)
-        resp = Response(json.dumps(json_obj))
+            json_string = f.read()
+        resp = Response(json_string)
         resp.headers['Content-Type'] = 'application/json'
-        resp.headers['Access-Control-Allow-Origin'] = '*'
 
-        return resp, 200
+        return add_CORS_headers(resp), 200
     else:
         return abort(404, 'JSON document with ID {} not found'.format(json_id))
 
@@ -161,7 +181,8 @@ def handle_put_request(request, json_id):
             access_token = request.headers.get('X-Access-Token')
         json_doc = JSON_document.query.filter_by(id=json_id).first()
         if json_doc.access_token == access_token:
-            return write_json(request, given_id=json_id), 200
+            resp = write_json(request, given_id=json_id)
+            return add_CORS_headers(resp), 200
         else:
             return abort(403, 'X-Access-Token header value not correct.')
     else:
@@ -183,8 +204,7 @@ def handle_delete_request(request, json_id):
             db.session.commit()
             os.remove(json_location)
             resp = Response('')
-            resp.headers['Access-Control-Allow-Origin'] = '*'
-            return resp, 200
+            return add_CORS_headers(resp), 200
         else:
             return abort(403, 'X-Access-Token header value not correct.')
     else:
@@ -205,12 +225,14 @@ def index():
 
     if 'Accept' in request.headers and \
             'application/json' in request.headers.get('Accept'):
-        return jsonify({'message': status_msg})
+        resp = jsonify({'message': status_msg})
+        return add_CORS_headers(resp), 200
     else:
-        return render_template('index.html',
+        resp = render_template('index.html',
                                base_url=BASE_URL,
                                api_path=API_PATH,
                                status_msg=status_msg)
+        return add_CORS_headers(resp), 200
 
 
 @app.route('/{}'.format(API_PATH), methods=['GET', 'POST', 'OPTIONS'])
@@ -221,7 +243,7 @@ def api():
     """
 
     if request.method == 'OPTIONS':
-        return CORS_preflight_response(), 200
+        return CORS_preflight_response(request)
     elif request.method == 'POST' and \
             'Accept' in request.headers and \
             'Content-Type' in request.headers and \
@@ -229,7 +251,8 @@ def api():
             'application/json' in request.headers.get('Content-Type'):
         return handle_post_request(request)
     else:
-        return redirect(url_for('index'))
+        resp = redirect(url_for('index'))
+        return add_CORS_headers(resp)
 
 
 @app.route('/{}/<json_id>'.format(API_PATH),
@@ -239,7 +262,7 @@ def api_json_id(json_id):
     """
 
     if request.method == 'OPTIONS':
-        return CORS_preflight_response(), 200
+        return CORS_preflight_response(request)
     elif request.method == 'GET' and \
             'Accept' in request.headers and \
             'application/json' in request.headers.get('Accept'):
@@ -253,7 +276,8 @@ def api_json_id(json_id):
     elif request.method == 'DELETE':
         return handle_delete_request(request, json_id)
     else:
-        return redirect(url_for('index'))
+        resp = redirect(url_for('index'))
+        return add_CORS_headers(resp)
 
 
 if __name__ == '__main__':
