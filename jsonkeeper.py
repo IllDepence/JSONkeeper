@@ -92,7 +92,8 @@ def write_json(request, given_id=None):
                                        'utf-8')).hexdigest()
         resp.headers['Location'] = '/{}/{}'.format(API_PATH, json_id)
 
-    with open('{}/{}'.format(STORE_FOLDER, json_id), 'w') as f:
+    with open('{}/{}'.format(STORE_FOLDER, json_id),
+              'w', encoding='utf-8') as f:
         f.write(json_string)
 
     resp.headers['Content-Type'] = 'application/json'
@@ -160,7 +161,7 @@ def handle_get_request(request, json_id):
 
     json_location = '{}/{}'.format(STORE_FOLDER, json_id)
     if os.path.isfile(json_location):
-        with open(json_location, 'r') as f:
+        with open(json_location, 'r', encoding='utf-8') as f:
             json_string = f.read()
         resp = Response(json_string)
         resp.headers['Content-Type'] = 'application/json'

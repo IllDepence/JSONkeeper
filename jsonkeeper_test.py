@@ -1,6 +1,6 @@
 import configparser
 import json
-import json_store
+import jsonkeeper
 import os
 import shutil
 import tempfile
@@ -14,18 +14,18 @@ class JsonStoreTestCase(unittest.TestCase):
         """ Set up sqlite DB in memory and JSON storage in a tmp directory.
         """
 
-        json_store.app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite://'
-        db = SQLAlchemy(json_store.app)
+        jsonkeeper.app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite://'
+        db = SQLAlchemy(jsonkeeper.app)
 
         # ↓ not really nice since it's duplicate code from the app iself
         class JSON_document(db.Model):
             id = db.Column(db.String(64), primary_key=True)
             access_token = db.Column(db.String(255))
         db.create_all()
-        json_store.STORE_FOLDER = tempfile.mkdtemp()
+        jsonkeeper.STORE_FOLDER = tempfile.mkdtemp()
 
-        json_store.app.testing = True
-        self.app = json_store.app.test_client()
+        jsonkeeper.app.testing = True
+        self.app = jsonkeeper.app.test_client()
 
         # ↓ not really nice since it's duplicate code from the app iself
         config = configparser.ConfigParser()
@@ -38,7 +38,7 @@ class JsonStoreTestCase(unittest.TestCase):
         """ Remove tmp directory set up for JSON storage.
         """
 
-        shutil.rmtree(json_store.STORE_FOLDER)
+        shutil.rmtree(jsonkeeper.STORE_FOLDER)
 
     def test_info_page_JSON(self):
         """ Test info page when Accept header is set to application/json
@@ -107,16 +107,16 @@ class JsonStoreTestCase(unittest.TestCase):
         # # stored file
         location = resp.headers.get('Location')
         json_id = location.split('/')[-1]
-        json_files = [f.name for f in os.scandir(json_store.STORE_FOLDER)
+        json_files = [f.name for f in os.scandir(jsonkeeper.STORE_FOLDER)
                       if f.is_file()]
         self.assertIn(json_id, json_files)
-        with open('{}/{}'.format(json_store.STORE_FOLDER, json_id)) as f:
+        with open('{}/{}'.format(jsonkeeper.STORE_FOLDER, json_id)) as f:
             json_obj = json.load(f)
             self.assertIn('foo', json_obj)
             self.assertEqual(json_obj['foo'], 'bar')
 
         # # DB
-        json_doc = json_store.JSON_document.query.filter_by(
+        json_doc = jsonkeeper.JSON_document.query.filter_by(
                         id=json_id).first()
         self.assertEqual(json_doc.id, json_id)
         self.assertEqual(json_doc.access_token, '')
@@ -141,7 +141,7 @@ class JsonStoreTestCase(unittest.TestCase):
         self.assertIn('ほげ', json_obj)
 
         # # stored file
-        with open('{}/{}'.format(json_store.STORE_FOLDER, json_id)) as f:
+        with open('{}/{}'.format(jsonkeeper.STORE_FOLDER, json_id)) as f:
             json_obj = json.load(f)
             self.assertIn('ほげ', json_obj)
 
@@ -151,12 +151,12 @@ class JsonStoreTestCase(unittest.TestCase):
         self.assertEqual(resp.status, '200 OK')
 
         # # stored file
-        json_files = [f.name for f in os.scandir(json_store.STORE_FOLDER)
+        json_files = [f.name for f in os.scandir(jsonkeeper.STORE_FOLDER)
                       if f.is_file()]
         self.assertNotIn(json_id, json_files)
 
         # # DB
-        json_docs = json_store.JSON_document.query.all()
+        json_docs = jsonkeeper.JSON_document.query.all()
         json_ids = [j.id for j in json_docs]
         self.assertNotIn(json_id, json_ids)
 

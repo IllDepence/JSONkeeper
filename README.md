@@ -1,3 +1,7 @@
+![](logo_500px.png)
+
+A minimal flask web application made for API access to store and retrieve JSON documents.
+
 ## setup
 * create virtual environment: `$ python3 -m venv venv`
 * activate virtual environment: `$ source venv/bin/activate`
@@ -6,13 +10,13 @@
 ## serve
 ### development
     $ source venv/bin/activate
-    $ FLASK_APP=json_store.py FLASK_DEBUG=1 python -m flask run
+    $ FLASK_APP=jsonkeeper.py FLASK_DEBUG=1 python -m flask run
 
 ### deploy
 #### *local* apache2 + gunicorn example
     $ source venv/bin/activate
     $ pip install gunicorn
-    $ gunicorn --bind 0.0.0.0:8000 json_store:app
+    $ gunicorn --bind 0.0.0.0:8000 jsonkeeper:app
     $ sudo a2enmod proxy_http
 
 * add subdomain to /etc/hosts:
@@ -42,7 +46,7 @@
 ## test
     $ flake8 *.py
     $ source venv/bin/activate
-    $ python json_store_test.py
+    $ python jsonkeeper_test.py
 
 ## usage examples
 ### POST
@@ -70,3 +74,8 @@
             console.info(xhr.getResponseHeader('Location'));
             }
         });
+
+## logo
+
+The JSONkeeper logo uses image content from [十二類絵巻](http://codh.rois.ac.jp/pmjt/book/200015137/) in the [日本古典籍データセット（国文研所蔵）](http://codh.rois.ac.jp/pmjt/book/) provided by the [Center for Open Data in the Humanities](http://codh.rois.ac.jp/), used under [CC-BY-SA 4.0](http://creativecommons.org/licenses/by-sa/4.0/).
+The JSONkeeper logo itself is licensed under [CC-BY-SA 4.0](http://creativecommons.org/licenses/by-sa/4.0/) by Tarek Saier.
