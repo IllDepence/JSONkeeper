@@ -4,11 +4,13 @@
 """
 
 import configparser
+import firebase_admin
 import hashlib
 import json
 import os
 import random
 import sys
+from firebase_admin import auth as firebase_auth
 from flask import (abort, Flask, jsonify, redirect, render_template, request,
                    Response, url_for)
 from flask_sqlalchemy import SQLAlchemy
@@ -28,6 +30,14 @@ elif 'db_uri' not in config['environment'] or \
     print(('Config section [environment] needs parameters "db_uri", "storage_'
            'folder" and "server_url".'))
     sys.exit(1)
+if 'firebase' in config.sections() and \
+       'service_account_key_file' in config['firebase']:
+    key_file_path = config['firebase']['service_account_key_file']
+    cred = firebase_admin.credentials.Certificate(key_file_path)
+    firebase_admin.initialize_app(cred)
+    USE_FIREBASE = True
+else:
+    USE_FIREBASE = False
 
 STORE_FOLDER = config['environment']['storage_folder']
 BASE_URL = config['environment']['server_url']
@@ -137,13 +147,36 @@ def add_CORS_headers(resp):
     return resp
 
 
+def get_access_token(request):
+    """ Given a request object, return the resulting access token. This can be:
+        - a Firebase uid
+        - a freely chosen access token (managed by the client)
+        - '' (empty string) in case no access token is provided
+        - False in case a Firebase ID token could not be verified
+    """
+
+    if USE_FIREBASE and 'X-Firebase-ID-Token' in request.headers:
+        id_token = request.headers.get('X-Firebase-ID-Token')
+        try:
+            decoded_token = firebase_auth.verify_id_token(id_token)
+            uid = decoded_token['uid']
+            access_token = uid
+        except:
+            return False
+    elif 'X-Access-Token' in request.headers:
+        access_token = request.headers.get('X-Access-Token')
+    else:
+        access_token = ''
+    return access_token
+
+
 def handle_post_request(request):
     """ Handle request with the purpose of storing a new JSON document.
     """
 
-    access_token = ''
-    if 'X-Access-Token' in request.headers:
-        access_token = request.headers.get('X-Access-Token')
+    access_token = get_access_token(request)
+    if access_token is False:
+        return abort(403, 'Firebase ID token could not be verified.')
 
     resp = write_json(request)
     json_id = resp.headers.get('Location').split('/')[-1]
@@ -177,9 +210,9 @@ def handle_put_request(request, json_id):
 
     json_location = '{}/{}'.format(STORE_FOLDER, json_id)
     if os.path.isfile(json_location):
-        access_token = ''
-        if 'X-Access-Token' in request.headers:
-            access_token = request.headers.get('X-Access-Token')
+        access_token = get_access_token(request)
+        if access_token is False:
+            return abort(403, 'Firebase ID token could not be verified.')
         json_doc = JSON_document.query.filter_by(id=json_id).first()
         if json_doc.access_token == access_token:
             resp = write_json(request, given_id=json_id)
@@ -196,9 +229,9 @@ def handle_delete_request(request, json_id):
 
     json_location = '{}/{}'.format(STORE_FOLDER, json_id)
     if os.path.isfile(json_location):
-        access_token = ''
-        if 'X-Access-Token' in request.headers:
-            access_token = request.headers.get('X-Access-Token')
+        access_token = get_access_token(request)
+        if access_token is False:
+            return abort(403, 'Firebase ID token could not be verified.')
         json_doc = JSON_document.query.filter_by(id=json_id).first()
         if json_doc.access_token == access_token:
             db.session.delete(json_doc)
