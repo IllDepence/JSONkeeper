@@ -21,8 +21,10 @@ class JsonStoreTestCase(unittest.TestCase):
         class JSON_document(db.Model):
             id = db.Column(db.String(64), primary_key=True)
             access_token = db.Column(db.String(255))
+            json_string = db.Column(db.UnicodeText())
         db.create_all()
-        jsonkeeper.STORE_FOLDER = tempfile.mkdtemp()
+        if jsonkeeper.STORE_FOLDER:
+            jsonkeeper.STORE_FOLDER = tempfile.mkdtemp()
 
         jsonkeeper.app.testing = True
         self.app = jsonkeeper.app.test_client()
@@ -38,7 +40,8 @@ class JsonStoreTestCase(unittest.TestCase):
         """ Remove tmp directory set up for JSON storage.
         """
 
-        shutil.rmtree(jsonkeeper.STORE_FOLDER)
+        if jsonkeeper.STORE_FOLDER:
+            shutil.rmtree(jsonkeeper.STORE_FOLDER)
 
     def test_info_page_JSON(self):
         """ Test info page when Accept header is set to application/json
@@ -50,7 +53,7 @@ class JsonStoreTestCase(unittest.TestCase):
         self.assertEqual(resp.headers.get('Content-Type'), 'application/json')
         json_obj = json.loads(resp.data.decode('utf-8'))
         self.assertIn('message', json_obj)
-        self.assertIn('files taking up', json_obj['message'])
+        self.assertIn('JSON documents.', json_obj['message'])
 
     def test_info_page_HTML(self):
         """ Test info page when Accept header is not set to application/json
@@ -61,7 +64,7 @@ class JsonStoreTestCase(unittest.TestCase):
         self.assertEqual(resp.status, '200 OK')
         self.assertIn('text/html', resp.headers.get('Content-Type'))
         self.assertIn(b'<!doctype html>', resp.data)
-        self.assertIn(b'files taking up', resp.data)
+        self.assertIn(b'JSON documents.', resp.data)
 
     def test_redirects(self):
         """ Test redirection to info page.
@@ -103,23 +106,28 @@ class JsonStoreTestCase(unittest.TestCase):
         json_obj = json.loads(resp.data.decode('utf-8'))
         self.assertIn('foo', json_obj)
         self.assertEqual(json_obj['foo'], 'bar')
-
-        # # stored file
         location = resp.headers.get('Location')
         json_id = location.split('/')[-1]
-        json_files = [f.name for f in os.scandir(jsonkeeper.STORE_FOLDER)
-                      if f.is_file()]
-        self.assertIn(json_id, json_files)
-        with open('{}/{}'.format(jsonkeeper.STORE_FOLDER, json_id)) as f:
-            json_obj = json.load(f)
-            self.assertIn('foo', json_obj)
-            self.assertEqual(json_obj['foo'], 'bar')
+
+        # # stored file
+        if jsonkeeper.STORE_FOLDER:
+            json_files = [f.name for f in os.scandir(jsonkeeper.STORE_FOLDER)
+                          if f.is_file()]
+            self.assertIn(json_id, json_files)
+            with open('{}/{}'.format(jsonkeeper.STORE_FOLDER, json_id)) as f:
+                json_obj = json.load(f)
+                self.assertIn('foo', json_obj)
+                self.assertEqual(json_obj['foo'], 'bar')
 
         # # DB
         json_doc = jsonkeeper.JSON_document.query.filter_by(
                         id=json_id).first()
         self.assertEqual(json_doc.id, json_id)
         self.assertEqual(json_doc.access_token, '')
+        if not jsonkeeper.STORE_FOLDER:
+            json_obj = json.loads(json_doc.json_string)
+            self.assertIn('foo', json_obj)
+            self.assertEqual(json_obj['foo'], 'bar')
 
         # Access
         # # HTTP response
@@ -141,8 +149,16 @@ class JsonStoreTestCase(unittest.TestCase):
         self.assertIn('ほげ', json_obj)
 
         # # stored file
-        with open('{}/{}'.format(jsonkeeper.STORE_FOLDER, json_id)) as f:
-            json_obj = json.load(f)
+        if jsonkeeper.STORE_FOLDER:
+            with open('{}/{}'.format(jsonkeeper.STORE_FOLDER, json_id)) as f:
+                json_obj = json.load(f)
+                self.assertIn('ほげ', json_obj)
+
+        # # DB
+        if not jsonkeeper.STORE_FOLDER:
+            json_doc = jsonkeeper.JSON_document.query.filter_by(
+                            id=json_id).first()
+            json_obj = json.loads(json_doc.json_string)
             self.assertIn('ほげ', json_obj)
 
         # Delete
@@ -151,9 +167,10 @@ class JsonStoreTestCase(unittest.TestCase):
         self.assertEqual(resp.status, '200 OK')
 
         # # stored file
-        json_files = [f.name for f in os.scandir(jsonkeeper.STORE_FOLDER)
-                      if f.is_file()]
-        self.assertNotIn(json_id, json_files)
+        if jsonkeeper.STORE_FOLDER:
+            json_files = [f.name for f in os.scandir(jsonkeeper.STORE_FOLDER)
+                          if f.is_file()]
+            self.assertNotIn(json_id, json_files)
 
         # # DB
         json_docs = jsonkeeper.JSON_document.query.all()

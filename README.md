@@ -1,4 +1,4 @@
-![](logo_500px.png)
+![JSONkeeper](logo_500px.png)
 
 A minimal flask web application made for API access to store and retrieve JSON documents.
 
@@ -61,7 +61,7 @@ A minimal flask web application made for API access to store and retrieve JSON d
 ### Restrict access to PUT and DELETE
 * **Firebase** (if configuration is provided (see `config.ini`))
     * provide a header `X-Firebase-ID-Token` when creating a JSON document
-    * the document will only be created if the ID token can be verified; the application stores the authenticated users UID
+    * the document will only be created if the ID token can be verified; the application stores the authenticated user's UID
     * subsequent `PUT` and `DELETE` requests are only executed when a `X-Firebase-ID-Token` header is provided that, when decoded, results in the same UID, otherwise a `403 FORBIDDEN` is returned
 * **self managed**
     * provide a header `X-Access-Token` when creating a JSON document

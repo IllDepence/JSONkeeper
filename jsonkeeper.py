@@ -25,10 +25,9 @@ if 'environment' not in config.sections():
     print('Config file needs a [environment] section.')
     sys.exit(1)
 elif 'db_uri' not in config['environment'] or \
-     'storage_folder' not in config['environment'] or \
      'server_url' not in config['environment']:
-    print(('Config section [environment] needs parameters "db_uri", "storage_'
-           'folder" and "server_url".'))
+    print(('Config section [environment] needs parameters "db_uri" and "server'
+           '_url".'))
     sys.exit(1)
 if 'firebase' in config.sections() and \
        'service_account_key_file' in config['firebase']:
@@ -39,7 +38,10 @@ if 'firebase' in config.sections() and \
 else:
     USE_FIREBASE = False
 
-STORE_FOLDER = config['environment']['storage_folder']
+if 'storage_folder' in config['environment']:
+    STORE_FOLDER = config['environment']['storage_folder']
+else:
+    STORE_FOLDER = False
 BASE_URL = config['environment']['server_url']
 API_PATH = 'api'
 if 'api_path' in config['environment']:
@@ -53,12 +55,13 @@ db = SQLAlchemy(app)
 class JSON_document(db.Model):
     id = db.Column(db.String(64), primary_key=True)
     access_token = db.Column(db.String(255))
+    json_string = db.Column(db.UnicodeText())
 
 db.create_all()
 
 
-if not os.path.exists(STORE_FOLDER):
-    """ Make sure the store folder exists.
+if STORE_FOLDER and not os.path.exists(STORE_FOLDER):
+    """ Make sure the store folder exists if a path is configured.
     """
 
     os.makedirs(STORE_FOLDER)
@@ -82,16 +85,23 @@ for code in default_exceptions.keys():
         return add_CORS_headers(resp)
 
 
-def write_json(request, given_id=None):
-    """ Write JSON contents from request to a file. Used for POST requests
+def write_json(request, given_id, access_token):
+    """ Write JSON contents from request to file or DB. Used for POST requests
         (new document) and PUT requests (update document). Dealing with access
         tokens (given or not in case of POST, correct or not in case of PUT)
         should happen *before* this method is called.
+
+        If the parameter `given_id` is set the corresponding JSON document is
+        expected to already exist.
     """
 
     json_bytes = request.data
-    json_string = json_bytes.decode('utf-8')
-    json_obj = json.loads(json_string)  # TODO: mby react on invalid JSON?
+    try:
+        json_string = json_bytes.decode('utf-8')
+        json_obj = json.loads(json_string)
+    except:
+        return abort(400, 'No valid JSON provided.')
+
     resp = Response(json_string)
     if given_id is not None:
         json_id = given_id
@@ -102,9 +112,29 @@ def write_json(request, given_id=None):
                                        'utf-8')).hexdigest()
         resp.headers['Location'] = '/{}/{}'.format(API_PATH, json_id)
 
-    with open('{}/{}'.format(STORE_FOLDER, json_id),
-              'w', encoding='utf-8') as f:
-        f.write(json_string)
+    if STORE_FOLDER:
+        # If JSON documents are to be stored in files, we need to write to file
+        # regardless of given_id's value
+        with open('{}/{}'.format(STORE_FOLDER, json_id),
+                  'w', encoding='utf-8') as f:
+            f.write(json_string)
+        json_string = ''
+
+    if not given_id:
+        # If this is a new JSON document we need to create a database record
+        # regardless of STORE_FOLDER's value
+        json_doc = JSON_document(id=json_id,
+                                 access_token=access_token,
+                                 json_string=json_string)
+        db.session.add(json_doc)
+        db.session.commit()
+
+    if given_id and not STORE_FOLDER:
+        # If JSON documents are to be stored in the database and this is a PUT
+        # request we need to update the database record
+        json_doc = JSON_document.query.filter_by(id=json_id).first()
+        json_doc.json_string = json_string
+        db.session.commit()
 
     resp.headers['Content-Type'] = 'application/json'
 
@@ -170,6 +200,22 @@ def get_access_token(request):
     return access_token
 
 
+def get_JSON_string_by_ID(json_id):
+    json_string = None
+
+    if STORE_FOLDER:
+        json_location = '{}/{}'.format(STORE_FOLDER, json_id)
+        if os.path.isfile(json_location):
+            with open(json_location, 'r', encoding='utf-8') as f:
+                json_string = f.read()
+    else:
+        json_doc = JSON_document.query.filter_by(id=json_id).first()
+        if json_doc:
+            json_string = json_doc.json_string
+
+    return json_string
+
+
 def handle_post_request(request):
     """ Handle request with the purpose of storing a new JSON document.
     """
@@ -178,12 +224,7 @@ def handle_post_request(request):
     if access_token is False:
         return abort(403, 'Firebase ID token could not be verified.')
 
-    resp = write_json(request)
-    json_id = resp.headers.get('Location').split('/')[-1]
-
-    json_doc = JSON_document(id=json_id, access_token=access_token)
-    db.session.add(json_doc)
-    db.session.commit()
+    resp = write_json(request, None, access_token)
 
     return add_CORS_headers(resp), 201
 
@@ -192,13 +233,11 @@ def handle_get_request(request, json_id):
     """ Handle request with the purpose of retrieving a JSON document.
     """
 
-    json_location = '{}/{}'.format(STORE_FOLDER, json_id)
-    if os.path.isfile(json_location):
-        with open(json_location, 'r', encoding='utf-8') as f:
-            json_string = f.read()
+    json_string = get_JSON_string_by_ID(json_id)
+
+    if json_string:
         resp = Response(json_string)
         resp.headers['Content-Type'] = 'application/json'
-
         return add_CORS_headers(resp), 200
     else:
         return abort(404, 'JSON document with ID {} not found'.format(json_id))
@@ -208,14 +247,15 @@ def handle_put_request(request, json_id):
     """ Handle request with the purpose of updating a JSON document.
     """
 
-    json_location = '{}/{}'.format(STORE_FOLDER, json_id)
-    if os.path.isfile(json_location):
+    json_string = get_JSON_string_by_ID(json_id)
+
+    if json_string:
         access_token = get_access_token(request)
         if access_token is False:
             return abort(403, 'Firebase ID token could not be verified.')
         json_doc = JSON_document.query.filter_by(id=json_id).first()
         if json_doc.access_token == access_token:
-            resp = write_json(request, given_id=json_id)
+            resp = write_json(request, json_id, access_token)
             return add_CORS_headers(resp), 200
         else:
             return abort(403, 'X-Access-Token header value not correct.')
@@ -227,8 +267,9 @@ def handle_delete_request(request, json_id):
     """ Handle request with the purpose of deleting a JSON document.
     """
 
-    json_location = '{}/{}'.format(STORE_FOLDER, json_id)
-    if os.path.isfile(json_location):
+    json_string = get_JSON_string_by_ID(json_id)
+
+    if json_string:
         access_token = get_access_token(request)
         if access_token is False:
             return abort(403, 'Firebase ID token could not be verified.')
@@ -236,7 +277,9 @@ def handle_delete_request(request, json_id):
         if json_doc.access_token == access_token:
             db.session.delete(json_doc)
             db.session.commit()
-            os.remove(json_location)
+            if STORE_FOLDER:
+                json_location = '{}/{}'.format(STORE_FOLDER, json_id)
+                os.remove(json_location)
             resp = Response('')
             return add_CORS_headers(resp), 200
         else:
@@ -251,11 +294,13 @@ def index():
         here.
     """
 
-    json_files = [f.path for f in os.scandir(STORE_FOLDER) if f.is_file()]
-    num_files = len(json_files)
-    store_size = '{:,}'.format(sum(os.path.getsize(f) for f in json_files))
-    status_msg = 'Storing {} files taking up {} byte.'.format(num_files,
-                                                              store_size)
+    if STORE_FOLDER:
+        json_files = [f.path for f in os.scandir(STORE_FOLDER) if f.is_file()]
+        num_files = len(json_files)
+    else:
+        num_files = JSON_document.query.count()
+
+    status_msg = 'Storing {} JSON documents.'.format(num_files)
 
     if 'Accept' in request.headers and \
             'application/json' in request.headers.get('Accept'):

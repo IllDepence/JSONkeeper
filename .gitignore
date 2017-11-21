@@ -1,6 +1,6 @@
 venv
 *.swp
+*.db
 __pycache__
 firebase-adminsdk.json
-metadata.db
 store
