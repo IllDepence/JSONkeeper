@@ -28,11 +28,11 @@ A minimal flask web application made for API access to store and retrieve JSON d
 
 * restart apache, get and start gunicorn
 
-    $ sudo a2enmod proxy_http
-    $ sudo service apache2 reload
-    $ source venv/bin/activate
-    $ pip install gunicorn
-    $ gunicorn --bind 127.0.0.1:8000 -e SCRIPT_NAME='/JSONkeeper' jsonkeeper:app
+        $ sudo a2enmod proxy_http
+        $ sudo service apache2 reload
+        $ source venv/bin/activate
+        $ pip install gunicorn
+        $ gunicorn --bind 127.0.0.1:8000 -e SCRIPT_NAME='/JSONkeeper' jsonkeeper:app
 
 #### alternatives
 * [Deployment Options](http://flask.pocoo.org/docs/0.12/deploying/)
