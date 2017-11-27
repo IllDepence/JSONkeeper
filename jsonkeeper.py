@@ -110,7 +110,7 @@ def write_json(request, given_id, access_token):
         # be updated into distict documents later)
         json_id = hashlib.sha256(bytes(str(random.random()) + json_string,
                                        'utf-8')).hexdigest()
-        resp.headers['Location'] = '/{}/{}'.format(API_PATH, json_id)
+        resp.headers['Location'] = url_for('api_json_id', json_id=json_id)
 
     if STORE_FOLDER:
         # If JSON documents are to be stored in files, we need to write to file
