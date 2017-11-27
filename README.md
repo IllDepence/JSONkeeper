@@ -14,32 +14,25 @@ A minimal flask web application made for API access to store and retrieve JSON d
     $ FLASK_APP=jsonkeeper.py FLASK_DEBUG=1 python -m flask run
 
 ### deploy
-#### *local* apache2 + gunicorn example
-    $ source venv/bin/activate
-    $ pip install gunicorn
-    $ gunicorn --bind 0.0.0.0:8000 jsonkeeper:app
-    $ sudo a2enmod proxy_http
-
-* add subdomain to /etc/hosts:
-
-        127.0.0.1   json.localhost
-
-* add VirtualHost to Apache (e.g. `/etc/apache2/sites-enabled/000-default.conf`):
-
-        <VirtualHost *:80>
-            ServerName json.localhost
-            <Proxy *>
-                Order deny,allow
-                Allow from all
-            </Proxy>
-            ProxyPreserveHost On
-            ProxyPass / "http://127.0.0.1:8000/"
-            ProxyPassReverse / "http://127.0.0.1:8000/"
-        </VirtualHost>
+#### apache2 + gunicorn example
 
 * configure server URL in `config.ini`:
 
-        server_url = json.localhost
+        server_url = http://localhost/JSONkeeper
+
+* add proxy rules to apache (e.g. in `/etc/apache2/sites-enabled/000-default.conf` within the `<VirtualHost *:80>` block):
+
+        ProxyPreserveHost On
+        ProxyPassMatch "^/JSONkeeper/(.*)" "http://127.0.0.1:8000/JSONkeeper/$1"
+        ProxyPassReverse "^/JSONkeeper/(.*)" "http://127.0.0.1:8000/JSONkeeper/$1"
+
+* restart apache, get and start gunicorn
+
+    $ sudo a2enmod proxy_http
+    $ sudo service apache2 reload
+    $ source venv/bin/activate
+    $ pip install gunicorn
+    $ gunicorn --bind 127.0.0.1:8000 -e SCRIPT_NAME='/JSONkeeper' jsonkeeper:app
 
 #### alternatives
 * [Deployment Options](http://flask.pocoo.org/docs/0.12/deploying/)
