@@ -90,7 +90,7 @@ def write_json(request, given_id=None):
         # be updated into distict documents later)
         json_id = hashlib.sha256(bytes(str(random.random()) + json_string,
                                        'utf-8')).hexdigest()
-        resp.headers['Location'] = '/{}/{}'.format(API_PATH, json_id)
+        resp.headers['Location'] = url_for('api_json_id', json_id=json_id)
 
     with open('{}/{}'.format(STORE_FOLDER, json_id),
               'w', encoding='utf-8') as f:
