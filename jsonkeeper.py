@@ -1,4 +1,4 @@
-""" json_store
+""" JSONkeeper
 
     Minimal web app made for API access to store and retrieve JSON.
 """
@@ -80,8 +80,12 @@ def write_json(request, given_id=None):
     """
 
     json_bytes = request.data
-    json_string = json_bytes.decode('utf-8')
-    json_obj = json.loads(json_string)  # TODO: mby react on invalid JSON?
+    try:
+        json_string = json_bytes.decode('utf-8')
+        json.loads(json_string)
+    except:
+        return abort(400, 'No valid JSON provided.')
+
     resp = Response(json_string)
     if given_id is not None:
         json_id = given_id
