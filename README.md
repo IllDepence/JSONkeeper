@@ -18,11 +18,10 @@ A minimal flask web application made for API access to store and retrieve JSON d
 
 * configure server URL in `config.ini`:
 
-        server_url = http://localhost/JSONkeeper
+        server_url = http://127.0.0.1/JSONkeeper
 
 * add proxy rules to apache (e.g. in `/etc/apache2/sites-enabled/000-default.conf` within the `<VirtualHost *:80>` block):
 
-        ProxyPreserveHost On
         ProxyPassMatch "^/JSONkeeper/(.*)" "http://127.0.0.1:8000/JSONkeeper/$1"
         ProxyPassReverse "^/JSONkeeper/(.*)" "http://127.0.0.1:8000/JSONkeeper/$1"
 
@@ -44,13 +43,25 @@ A minimal flask web application made for API access to store and retrieve JSON d
 
 ## usage examples
 ### POST
-    $ curl -X POST -d '{"foo":"bar"}' -H 'Accept: application/json' -H 'Content-Type: application/json' http://example.com/api
+    $ curl -X POST \
+           -d '{"foo":"bar"}' \
+           -H 'Accept: application/json' \
+           -H 'Content-Type: application/json' \
+           http://127.0.0.1/JSONkeeper/api
 ### GET
-    $ curl -X GET -H 'Accept: application/json' http://example.com/api/<id>
+    $ curl -X GET \
+           -H 'Accept: application/json' \
+           http://127.0.0.1/JSONkeeper/api/<id>
 ### PUT
-    $ curl -X PUT -d '{"bar":"baz"}' -H 'Accept: application/json' -H 'Content-Type: application/json' http://example.com/api/<id>
+    $ curl -X PUT \
+           -d '{"bar":"baz"}' \
+           -H 'Accept: application/json' \
+           -H 'Content-Type: application/json' \
+           http://127.0.0.1/JSONkeeper/api/<id>
 ### DELETE
-    $ curl -X DELETE  http://example.com/api/<id>
+    $ curl -X DELETE  \
+           http://127.0.0.1/JSONkeeper/api/<id>
+
 ### Restrict access to PUT and DELETE
 * **Firebase** (if configuration is provided (see `config.ini`))
     * provide a header `X-Firebase-ID-Token` when creating a JSON document
@@ -62,7 +73,7 @@ A minimal flask web application made for API access to store and retrieve JSON d
 
 ### jQuery example
     $.ajax({
-        url: 'http://json.localhost/api',
+        url: 'http://127.0.0.1/JSONkeeper/api',
         type: 'post',
         data: '{"foo":"bar"}',
         headers: {

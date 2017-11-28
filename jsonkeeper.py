@@ -1,4 +1,4 @@
-""" json_store
+""" JSONkeeper
 
     Minimal web app made for API access to store and retrieve JSON.
 """
@@ -98,7 +98,7 @@ def write_json(request, given_id, access_token):
     json_bytes = request.data
     try:
         json_string = json_bytes.decode('utf-8')
-        json_obj = json.loads(json_string)
+        json.loads(json_string)
     except:
         return abort(400, 'No valid JSON provided.')
 
