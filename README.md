@@ -2,20 +2,28 @@
 
 A minimal flask web application made for API access to store and retrieve JSON documents.
 
-## setup
+## Setup
 * create virtual environment: `$ python3 -m venv venv`
 * activate virtual environment: `$ source venv/bin/activate`
 * install requirements: `$ pip install -r requirements.txt`
-* edit `config.ini`
 
-## serve
-### development
+## Configure
+* edit `config.ini`
+* mandatory
+    * `db_uri` is a [SQLAlchemy database URI](http://docs.sqlalchemy.org/en/latest/core/engines.html#database-urls)
+    * `server_url` is supposed to be set to the URL that is used to access your JSONkeeper instance (e.g. `http://ikeepjson.com` or `http://sirtetris.com/jsonkeeper`)
+    * `api_path` specifies the endpoint for API access (e.g. `api` → <pre>http://ikeepjson.com/<b>api</b></pre> or <pre>http://sirtetris.com/jsonkeeper/<b>api</b></pre>)
+* optional
+    * `storage_folder` can be set so that JSON documents are not stored in the database but as files in a folder
+    * `service_account_key_file` can be set for Google Firebase integration ([details below](#restrict-access-to-put-and-delete))
+
+## Serve
+### Development
     $ source venv/bin/activate
     $ FLASK_APP=jsonkeeper.py FLASK_DEBUG=1 python -m flask run
 
-### deploy
-#### apache2 + gunicorn example
-
+### Deploy
+#### Apache2 + gunicorn example
 * configure server URL in `config.ini`:
 
         server_url = http://127.0.0.1/JSONkeeper
@@ -33,41 +41,43 @@ A minimal flask web application made for API access to store and retrieve JSON d
         $ pip install gunicorn
         $ gunicorn --bind 127.0.0.1:8000 -e SCRIPT_NAME='/JSONkeeper' jsonkeeper:app
 
-#### alternatives
+#### Alternatives
 * [Deployment Options](http://flask.pocoo.org/docs/0.12/deploying/)
 
-## test
-    $ flake8 *.py
-    $ source venv/bin/activate
-    $ python jsonkeeper_test.py
+## Test
+* if you make changes to the code, basic testing can be done with
 
-## usage examples
-### POST
+        $ flake8 *.py
+        $ source venv/bin/activate
+        $ python jsonkeeper_test.py
+
+## Usage examples
+### Create
     $ curl -X POST \
            -d '{"foo":"bar"}' \
            -H 'Accept: application/json' \
            -H 'Content-Type: application/json' \
            http://127.0.0.1/JSONkeeper/api
-### GET
+### Retrieve
     $ curl -X GET \
            -H 'Accept: application/json' \
            http://127.0.0.1/JSONkeeper/api/<id>
-### PUT
+### Update
     $ curl -X PUT \
            -d '{"bar":"baz"}' \
            -H 'Accept: application/json' \
            -H 'Content-Type: application/json' \
            http://127.0.0.1/JSONkeeper/api/<id>
-### DELETE
+### Delete
     $ curl -X DELETE  \
            http://127.0.0.1/JSONkeeper/api/<id>
 
 ### Restrict access to PUT and DELETE
-* **Firebase** (if configuration is provided (see `config.ini`))
+* **Firebase** (if the [configuration](Configure) points to a valid [Firebase service account key file](https://firebase.google.com/docs/admin/setup#add_firebase_to_your_app))
     * provide a header `X-Firebase-ID-Token` when creating a JSON document
-    * the document will only be created if the ID token can be verified; the application stores the authenticated user's UID
+    * the document will only be created if the ID token can be verified, otherwise a `403 FORBIDDEN` is returned; if the document is created, the application stores the authenticated user's UID
     * subsequent `PUT` and `DELETE` requests are only executed when a `X-Firebase-ID-Token` header is provided that, when decoded, results in the same UID, otherwise a `403 FORBIDDEN` is returned
-* **self managed**
+* **Self managed**
     * provide a header `X-Access-Token` when creating a JSON document
     * subsequent `PUT` and `DELETE` requests are only executed when a `X-Access-Token` header with the same value is provided, otherwise a `403 FORBIDDEN` is returned
 
@@ -86,7 +96,10 @@ A minimal flask web application made for API access to store and retrieve JSON d
             }
         });
 
-## logo
-
+## Logo
 The JSONkeeper logo uses image content from [十二類絵巻](http://codh.rois.ac.jp/pmjt/book/200015137/) in the [日本古典籍データセット（国文研所蔵）](http://codh.rois.ac.jp/pmjt/book/) provided by the [Center for Open Data in the Humanities](http://codh.rois.ac.jp/), used under [CC-BY-SA 4.0](http://creativecommons.org/licenses/by-sa/4.0/).
 The JSONkeeper logo itself is licensed under [CC-BY-SA 4.0](http://creativecommons.org/licenses/by-sa/4.0/) by Tarek Saier.
+
+## Support
+Sponsored by the National Institute of Informatics.  
+Supported by the Center for Open Data in the Humanities, Joint Support-Center for Data Science Research, Research Organization of Information and Systems.

@@ -6,6 +6,7 @@ import shutil
 import tempfile
 import unittest
 from flask_sqlalchemy import SQLAlchemy
+from sqlalchemy.sql import func
 
 
 class JsonStoreTestCase(unittest.TestCase):
@@ -22,6 +23,10 @@ class JsonStoreTestCase(unittest.TestCase):
             id = db.Column(db.String(64), primary_key=True)
             access_token = db.Column(db.String(255))
             json_string = db.Column(db.UnicodeText())
+            created_at = db.Column(db.DateTime(timezone=True),
+                                   server_default=func.now())
+            updated_at = db.Column(db.DateTime(timezone=True),
+                                   onupdate=func.now())
         db.create_all()
         if jsonkeeper.STORE_FOLDER:
             jsonkeeper.STORE_FOLDER = tempfile.mkdtemp()

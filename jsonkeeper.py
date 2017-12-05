@@ -14,6 +14,7 @@ from firebase_admin import auth as firebase_auth
 from flask import (abort, Flask, jsonify, redirect, render_template, request,
                    Response, url_for)
 from flask_sqlalchemy import SQLAlchemy
+from sqlalchemy.sql import func
 from werkzeug.exceptions import default_exceptions, HTTPException
 
 app = Flask(__name__)
@@ -56,6 +57,10 @@ class JSON_document(db.Model):
     id = db.Column(db.String(64), primary_key=True)
     access_token = db.Column(db.String(255))
     json_string = db.Column(db.UnicodeText())
+    created_at = db.Column(db.DateTime(timezone=True),
+                           server_default=func.now())
+    updated_at = db.Column(db.DateTime(timezone=True),
+                           onupdate=func.now())
 
 db.create_all()
 
