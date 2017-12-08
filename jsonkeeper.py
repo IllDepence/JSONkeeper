@@ -185,7 +185,8 @@ def handle_put_request(request, json_id):
         if 'X-Access-Token' in request.headers:
             access_token = request.headers.get('X-Access-Token')
         json_doc = JSON_document.query.filter_by(id=json_id).first()
-        if json_doc.access_token == access_token:
+        if json_doc.access_token == access_token or \
+                json_doc.access_token == '':
             resp = write_json(request, given_id=json_id)
             return add_CORS_headers(resp), 200
         else:
@@ -204,7 +205,8 @@ def handle_delete_request(request, json_id):
         if 'X-Access-Token' in request.headers:
             access_token = request.headers.get('X-Access-Token')
         json_doc = JSON_document.query.filter_by(id=json_id).first()
-        if json_doc.access_token == access_token:
+        if json_doc.access_token == access_token or \
+                json_doc.access_token == '':
             db.session.delete(json_doc)
             db.session.commit()
             os.remove(json_location)
