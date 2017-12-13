@@ -12,8 +12,8 @@ A minimal flask web application made for API access to store and retrieve JSON d
 * mandatory
     * `db_uri` is a [SQLAlchemy database URI](http://docs.sqlalchemy.org/en/latest/core/engines.html#database-urls)
     * `storage_folder` can be set so that JSON documents are not stored in the database but as files in a folder
-    * `server_url` is supposed to be set to the URL that is used to access your JSONkeeper instance (e.g. `http://ikeepjson.com` or `http://sirtetris.com/jsonkeeper`)
-    * `api_path` specifies the endpoint for API access (e.g. `api` → <pre>http://ikeepjson.com/<b>api</b></pre> or <pre>http://sirtetris.com/jsonkeeper/<b>api</b></pre>)
+    * `server_url` is supposed to be set to the URL that is used to access your JSONkeeper instance<br>(e.g. `http://ikeepjson.com` or `http://sirtetris.com/jsonkeeper`)
+    * `api_path` specifies the endpoint for API access<br>(e.g. `api` → `http://ikeepjson.com/api` or `http://sirtetris.com/jsonkeeper/api`)
 
 ## Serve
 ### Development
