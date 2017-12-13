@@ -11,11 +11,9 @@ A minimal flask web application made for API access to store and retrieve JSON d
 * edit `config.ini`
 * mandatory
     * `db_uri` is a [SQLAlchemy database URI](http://docs.sqlalchemy.org/en/latest/core/engines.html#database-urls)
+    * `storage_folder` can be set so that JSON documents are not stored in the database but as files in a folder
     * `server_url` is supposed to be set to the URL that is used to access your JSONkeeper instance (e.g. `http://ikeepjson.com` or `http://sirtetris.com/jsonkeeper`)
     * `api_path` specifies the endpoint for API access (e.g. `api` → <pre>http://ikeepjson.com/<b>api</b></pre> or <pre>http://sirtetris.com/jsonkeeper/<b>api</b></pre>)
-* optional
-    * `storage_folder` can be set so that JSON documents are not stored in the database but as files in a folder
-    * `service_account_key_file` can be set for Google Firebase integration ([details below](#restrict-access-to-put-and-delete))
 
 ## Serve
 ### Development
@@ -73,10 +71,6 @@ A minimal flask web application made for API access to store and retrieve JSON d
            http://127.0.0.1/JSONkeeper/api/<id>
 
 ### Restrict access to PUT and DELETE
-* **Firebase** (if the [configuration](Configure) points to a valid [Firebase service account key file](https://firebase.google.com/docs/admin/setup#add_firebase_to_your_app))
-    * provide a header `X-Firebase-ID-Token` when creating a JSON document
-    * the document will only be created if the ID token can be verified, otherwise a `403 FORBIDDEN` is returned; if the document is created, the application stores the authenticated user's UID
-    * subsequent `PUT` and `DELETE` requests are only executed when a `X-Firebase-ID-Token` header is provided that, when decoded, results in the same UID, otherwise a `403 FORBIDDEN` is returned
 * **Self managed**
     * provide a header `X-Access-Token` when creating a JSON document
     * subsequent `PUT` and `DELETE` requests are only executed when a `X-Access-Token` header with the same value is provided, otherwise a `403 FORBIDDEN` is returned
