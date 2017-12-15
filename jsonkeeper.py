@@ -230,8 +230,7 @@ def index():
     status_msg = 'Storing {} files taking up {} byte.'.format(num_files,
                                                               store_size)
 
-    if 'Accept' in request.headers and \
-            'application/json' in request.headers.get('Accept'):
+    if request.accept_mimetypes.accept_json:
         resp = jsonify({'message': status_msg})
         return add_CORS_headers(resp), 200
     else:
@@ -252,10 +251,8 @@ def api():
     if request.method == 'OPTIONS':
         return CORS_preflight_response(request)
     elif request.method == 'POST' and \
-            'Accept' in request.headers and \
-            'Content-Type' in request.headers and \
-            'application/json' in request.headers.get('Accept') and \
-            'application/json' in request.headers.get('Content-Type'):
+            request.accept_mimetypes.accept_json and \
+            request.headers.get('Content-Type') == 'application/json':
         return handle_post_request(request)
     else:
         resp = redirect(url_for('index'))
@@ -271,14 +268,11 @@ def api_json_id(json_id):
     if request.method == 'OPTIONS':
         return CORS_preflight_response(request)
     elif request.method == 'GET' and \
-            'Accept' in request.headers and \
-            'application/json' in request.headers.get('Accept'):
+            request.accept_mimetypes.accept_json:
         return handle_get_request(request, json_id)
     elif request.method == 'PUT' and \
-            'Accept' in request.headers and \
-            'Content-Type' in request.headers and \
-            'application/json' in request.headers.get('Accept') and \
-            'application/json' in request.headers.get('Content-Type'):
+            request.accept_mimetypes.accept_json and \
+            request.headers.get('Content-Type') == 'application/json':
         return handle_put_request(request, json_id)
     elif request.method == 'DELETE':
         return handle_delete_request(request, json_id)
