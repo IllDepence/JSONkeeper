@@ -3,4 +3,5 @@ venv
 *.db
 __pycache__
 firebase-adminsdk.json
+gunicorn_config.py
 store
