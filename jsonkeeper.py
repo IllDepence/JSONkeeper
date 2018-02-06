@@ -17,19 +17,68 @@ from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy.sql import func
 from werkzeug.exceptions import default_exceptions, HTTPException
 
+
+def check_config(config):
+    """ Check file "config.ini" for problems.
+
+        Return a problem description or False in case everything's ok.
+    """
+
+    # Always required sections
+    if 'environment' not in config.sections():
+        return 'Config file needs a [environment] section.'
+
+    # Always required values
+    if not config['environment'].get('db_uri') or \
+       not config['environment'].get('server_url'):
+        return ('Config section [environment] needs parameters "db_uri" and "s'
+               'erver_url".')
+
+    # Activity stream prerequesites
+    if 'activity_stream' in config.sections() and \
+       len(config['activity_stream'].get('collection_url', '')) > 0:
+
+        # Need to define types
+        agt = config['activity_stream'].get('activity_generating_types', '')
+        if len(agt) == 0:
+            return ('Serving an Activity Stream requires activity_generating_t'
+                    'ypes in config section [activity_stream] to be set.')
+        # Need to enable @id rewriting
+        id_rewrite = False
+        if 'json-ld' in config.sections():
+            id_rewrite = config['json-ld'].getboolean('id_rewrite')
+        if not id_rewrite:
+            return ('Serving an Activity Stream requires id_rewrite in config '
+                    'section [json-ld] to be turned on.')
+        # Defined types need to be rewritten
+        agt_list = agt.split(',')
+        rwt_list = config['json-ld'].get('rewrite_types', '').split(',')
+        valid = True
+        for gen_type in agt_list:
+            if not gen_type in rwt_list:
+                valid = False
+        if not valid:
+            return ('Serving an Activity Stream requires all types set for Act'
+                    'ivity generation also to be set for JSON-LD @id rewriting'
+                    '.')
+
+    return('ok')
+    return False
+
+
 app = Flask(__name__)
 random.seed()
 
 config = configparser.ConfigParser()
+if not os.path.exists('config.ini'):
+    print('Config file "config.ini" not found.')
+    sys.exit(1)
 config.read('config.ini')
-if 'environment' not in config.sections():
-    print('Config file needs a [environment] section.')
+fail = check_config(config)
+if fail:
+    print(fail)
     sys.exit(1)
-elif 'db_uri' not in config['environment'] or \
-     'server_url' not in config['environment']:
-    print(('Config section [environment] needs parameters "db_uri" and "server'
-           '_url".'))
-    sys.exit(1)
+
 if 'firebase' in config.sections() and \
        'service_account_key_file' in config['firebase']:
     key_file_path = config['firebase']['service_account_key_file']
@@ -358,7 +407,3 @@ def api_json_id(json_id):
     else:
         resp = redirect(url_for('index'))
         return add_CORS_headers(resp)
-
-
-if __name__ == '__main__':
-    app.run(host='0.0.0.0')
