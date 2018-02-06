@@ -5,11 +5,10 @@
 
 import configparser
 import firebase_admin
-import hashlib
 import json
 import os
-import random
 import sys
+import uuid
 from firebase_admin import auth as firebase_auth
 from flask import (abort, Flask, jsonify, redirect, render_template, request,
                    Response, url_for)
@@ -19,7 +18,7 @@ from werkzeug.exceptions import default_exceptions, HTTPException
 
 
 def check_config(config):
-    """ Check file "config.ini" for problems.
+    """ Check file `config.ini` for problems.
 
         Return a problem description or False in case everything's ok.
     """
@@ -62,12 +61,10 @@ def check_config(config):
                     'ivity generation also to be set for JSON-LD @id rewriting'
                     '.')
 
-    return('ok')
     return False
 
 
 app = Flask(__name__)
-random.seed()
 
 config = configparser.ConfigParser()
 if not os.path.exists('config.ini'):
@@ -156,14 +153,16 @@ def write_json(request, given_id, access_token):
     except:
         return abort(400, 'No valid JSON provided.')
 
+    # TODO:
+    # - depending on config values
+    # - check for JSON-LD @ids and rewrite them
+    # - generate and store an activity stream (also, create route for that)
+
     resp = Response(json_string)
     if given_id is not None:
         json_id = given_id
     else:
-        # add randomness to allow for (initially) identical documents (could
-        # be updated into distict documents later)
-        json_id = hashlib.sha256(bytes(str(random.random()) + json_string,
-                                       'utf-8')).hexdigest()
+        json_id = str(uuid.uuid4())
         resp.headers['Location'] = url_for('api_json_id', json_id=json_id)
 
     if STORE_FOLDER:
