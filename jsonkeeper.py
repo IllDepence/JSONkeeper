@@ -7,12 +7,15 @@ import configparser
 import firebase_admin
 import json
 import os
+import re
 import sys
 import uuid
+from collections import OrderedDict
 from firebase_admin import auth as firebase_auth
 from flask import (abort, Flask, jsonify, redirect, render_template, request,
                    Response, url_for)
 from flask_sqlalchemy import SQLAlchemy
+from pyld import jsonld
 from sqlalchemy.sql import func
 from werkzeug.exceptions import default_exceptions, HTTPException
 
@@ -50,8 +53,9 @@ def check_config(config):
             return ('Serving an Activity Stream requires id_rewrite in config '
                     'section [json-ld] to be turned on.')
         # Defined types need to be rewritten
-        agt_list = agt.split(',')
-        rwt_list = config['json-ld'].get('rewrite_types', '').split(',')
+        agt_list = [t.split() for t in agt.split(',')]
+        rwt = config['json-ld'].get('rewrite_types', '')
+        rwt_list = [t.split() for t in rwt.split(',')]
         valid = True
         for gen_type in agt_list:
             if not gen_type in rwt_list:
@@ -61,6 +65,11 @@ def check_config(config):
                     'ivity generation also to be set for JSON-LD @id rewriting'
                     '.')
 
+    # TODO: instead of going through the config twice, once for sanity checking
+    #       and later again for extracting values, this function should return
+    #       - a boolean to indicate sanity of the config
+    #       - an optional message (error message for invalid config)
+    #       - a parsed config object that from then on is used
     return False
 
 
@@ -90,9 +99,16 @@ if 'storage_folder' in config['environment']:
 else:
     STORE_FOLDER = False
 BASE_URL = config['environment']['server_url']
-API_PATH = 'api'
-if 'api_path' in config['environment']:
-    API_PATH = config['environment']['api_path']
+API_PATH = config['environment'].get('custom_api_path', 'api')
+AS_COLL_URL = '-'
+if 'activity_stream' in config.sections():
+    AS_COLL_URL = config['environment'].get('collection_url', '-')
+if 'json-ld' in config.sections() and \
+   config['json-ld'].getboolean('id_rewrite') and \
+   len(config['json-ld'].get('rewrite_types', '')) > 0:
+    ID_REWRITE = True
+    rwt = config['json-ld'].get('rewrite_types', '')
+    REWRITE_TYPES = [t.strip() for t in rwt.split(',')]
 
 app.config['SQLALCHEMY_DATABASE_URI'] = config['environment']['db_uri']
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
@@ -109,6 +125,7 @@ class JSON_document(db.Model):
                            onupdate=func.now())
 
 db.create_all()
+jsonld.set_document_loader(jsonld.requests_document_loader(timeout=3))
 
 
 if STORE_FOLDER and not os.path.exists(STORE_FOLDER):
@@ -136,6 +153,56 @@ for code in default_exceptions.keys():
         return add_CORS_headers(resp)
 
 
+def acceptable_content_type(request):
+    """ Given a request, assess whether or not the content type is acceptable.
+
+        We allow 'application/json' as well as any content type in the form of
+        'application/<something>+json'.where <something> is a string of one or
+        more characters that can be anything except for the forward slash "/".
+    """
+
+    patt = re.compile('^application/([^/]+\+)?json$')
+    if patt.match(request.headers.get('Content-Type')):
+        return True
+    return False
+
+
+def update_activity_stream(json_string):
+    """ If configured, generate
+
+        
+    """
+
+    pass
+
+
+def handle_incoming_json_ld(json_str, json_id):
+    """ If configured, rewrite root level JSON-LD @ids.
+
+        (Special treatment for sc:Range atm -- generalize later if possible.)
+    """
+
+    # check JSON-LD validity
+    try:
+        root_elem = json.loads(json_str, object_pairs_hook=OrderedDict)
+        # https://json-ld.org/spec/latest/json-ld-api/#expansion-algorithms
+        expanded = jsonld.expand(root_elem)
+    except Exception as e:
+        return abort(400, 'No valid JSON-LD provided (this can be due to a con'
+                          'text that can not be resolved.\n\n\n{}'.format(e))
+
+    # rewrite @ids
+    if ID_REWRITE:
+       root_elem_types = expanded[0]['@type']
+       if len(set(root_elem_types).intersection(set(REWRITE_TYPES))) > 0:
+            root_elem['@id'] = '{}{}'.format(BASE_URL,
+                                             url_for('api_json_id',
+                                                     json_id=json_id))
+            json_str = json.dumps(root_elem)
+
+    return json_str
+
+
 def write_json(request, given_id, access_token):
     """ Write JSON contents from request to file or DB. Used for POST requests
         (new document) and PUT requests (update document). Dealing with access
@@ -153,16 +220,20 @@ def write_json(request, given_id, access_token):
     except:
         return abort(400, 'No valid JSON provided.')
 
+    if given_id is None:
+        json_id = str(uuid.uuid4())
+    else:
+        json_id = given_id
+
+    if request.headers.get('Content-Type') == 'application/ld+json':
+        json_string = handle_incoming_json_ld(json_string, json_id)
+
     # TODO:
-    # - depending on config values
-    # - check for JSON-LD @ids and rewrite them
     # - generate and store an activity stream (also, create route for that)
 
     resp = Response(json_string)
-    if given_id is not None:
-        json_id = given_id
-    else:
-        json_id = str(uuid.uuid4())
+
+    if given_id is None:
         resp.headers['Location'] = url_for('api_json_id', json_id=json_id)
 
     if STORE_FOLDER:
@@ -189,6 +260,7 @@ def write_json(request, given_id, access_token):
         json_doc.json_string = json_string
         db.session.commit()
 
+    # TODO: mby change according to what was given? consistency w/ GET?
     resp.headers['Content-Type'] = 'application/json'
 
     return resp
@@ -362,8 +434,7 @@ def index():
         return add_CORS_headers(resp), 200
     else:
         resp = render_template('index.html',
-                               base_url=BASE_URL,
-                               api_path=API_PATH,
+                               api_url=url_for('api'),
                                status_msg=status_msg)
         return add_CORS_headers(resp), 200
 
@@ -379,11 +450,29 @@ def api():
         return CORS_preflight_response(request)
     elif request.method == 'POST' and \
             request.accept_mimetypes.accept_json and \
-            request.headers.get('Content-Type') == 'application/json':
+            acceptable_content_type(request):
         return handle_post_request(request)
     else:
         resp = redirect(url_for('index'))
         return add_CORS_headers(resp)
+
+
+# @app.route('/{}'.format(AS_COLL_URL), methods=['GET', 'POST', 'OPTIONS'])
+# def activity_stream_collection():
+#     """
+#     """
+# 
+#     pass
+
+
+# @app.route('/{}/<json_id>/range<r_num>'.format(API_PATH),
+#            methods=['GET', 'OPTIONS'])
+#     """
+#     """
+# 
+# def api_json_id_range(json_id, r_num):
+#     # TODO: is this too specialized?
+#     pass
 
 
 @app.route('/{}/<json_id>'.format(API_PATH),
@@ -399,7 +488,7 @@ def api_json_id(json_id):
         return handle_get_request(request, json_id)
     elif request.method == 'PUT' and \
             request.accept_mimetypes.accept_json and \
-            request.headers.get('Content-Type') == 'application/json':
+            acceptable_content_type(request):
         return handle_put_request(request, json_id)
     elif request.method == 'DELETE':
         return handle_delete_request(request, json_id)

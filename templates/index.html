@@ -26,29 +26,29 @@ margin-bottom: 35px;
 <p></p>
 <h2>API</h2>
 <p><strong>POST</strong> (store a JSON document)</p>
-<pre>$ curl -i -X POST -d '{"foo":"bar"}' -H 'Accept: application/json' -H 'Content-Type: application/json' {{ base_url }}/{{ api_path }}
+<pre>$ curl -i -X POST -d '{"foo":"bar"}' -H 'Accept: application/json' -H 'Content-Type: application/json' {{ api_url }}
 
 HTTP/1.0 201 CREATED
 Content-Type: application/json
-Location: {{ base_url }}/{{ api_path }}/&lt;id&gt;
+Location: {{ api_url }}/&lt;id&gt;
 
 {"foo":"bar"}</pre>
 <p><strong>GET</strong> (retrieve a JSON document given an ID)</p>
-<pre>$ curl -i -X GET -H 'Accept: application/json' {{ base_url }}/{{ api_path }}/&lt;id&gt;
+<pre>$ curl -i -X GET -H 'Accept: application/json' {{ api_url }}/&lt;id&gt;
 
 HTTP/1.0 200 OK
 Content-Type: application/json
 
 {"foo": "bar"}</pre>
 <p><strong>PUT</strong> (update a JSON document given an ID)</p>
-<pre>$ curl -i -X PUT -d '{"bar":"baz"}' -H 'Accept: application/json' -H 'Content-Type: application/json' {{ base_url }}/{{ api_path }}/&lt;id&gt;
+<pre>$ curl -i -X PUT -d '{"bar":"baz"}' -H 'Accept: application/json' -H 'Content-Type: application/json' {{ api_url }}/&lt;id&gt;
 
 HTTP/1.0 200 OK
 Content-Type: application/json
 
 {"bar":"baz"}</pre>
 <p><strong>DELETE</strong> (delete a JSON document given an ID)</p>
-<pre>$ curl -i -X DELETE  {{ base_url }}/{{ api_path }}/&lt;id&gt;
+<pre>$ curl -i -X DELETE  {{ api_url }}/&lt;id&gt;
 
 HTTP/1.0 200 OK
 </pre>

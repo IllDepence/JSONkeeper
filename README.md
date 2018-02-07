@@ -11,7 +11,7 @@ A minimal flask web application made for API access to store and retrieve JSON d
 * edit `config.ini`
 * mandatory
     * `db_uri` is a [SQLAlchemy database URI](http://docs.sqlalchemy.org/en/latest/core/engines.html#database-urls)
-    * `server_url` is supposed to be set to the URL that is used to access your JSONkeeper instance<br>(e.g. `http://ikeepjson.com` or `http://sirtetris.com/jsonkeeper`)
+    * `server_url` is supposed to be set up to the TLD or port, without any path<br>(e.g. `http://ikeepjson.com` but not `http://sirtetris.com/jsonkeeper`)
     * `api_path` specifies the endpoint for API access<br>(e.g. `api` →  `http://ikeepjson.com/api` or `http://sirtetris.com/jsonkeeper/api`)
 * optional
     * `storage_folder` can be set so that JSON documents are not stored in the database but as files in a folder
@@ -26,7 +26,7 @@ A minimal flask web application made for API access to store and retrieve JSON d
 #### Apache2 + gunicorn example
 * configure server URL in `config.ini`:
 
-        server_url = http://127.0.0.1/JSONkeeper
+        server_url = http://localhost
 
 * add proxy rules to apache (e.g. in `/etc/apache2/sites-enabled/000-default.conf` within the `<VirtualHost *:80>` block):
 
