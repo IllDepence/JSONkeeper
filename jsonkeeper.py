@@ -168,7 +168,7 @@ def acceptable_content_type(request):
 
 
 def update_activity_stream(json_string):
-    """ If configured, generate
+    """ If configured, generate 
 
         
     """
@@ -189,18 +189,21 @@ def handle_incoming_json_ld(json_str, json_id):
         expanded = jsonld.expand(root_elem)
     except Exception as e:
         return abort(400, 'No valid JSON-LD provided (this can be due to a con'
-                          'text that can not be resolved.\n\n\n{}'.format(e))
+                          'text that can not be resolved).')
 
     # rewrite @ids
+    id_change = False
     if ID_REWRITE:
        root_elem_types = expanded[0]['@type']
        if len(set(root_elem_types).intersection(set(REWRITE_TYPES))) > 0:
             root_elem['@id'] = '{}{}'.format(BASE_URL,
                                              url_for('api_json_id',
                                                      json_id=json_id))
+            # TODO: for Ranges, we need to go deeper
             json_str = json.dumps(root_elem)
+            id_change = True
 
-    return json_str
+    return json_str, id_change
 
 
 def write_json(request, given_id, access_token):
@@ -225,11 +228,12 @@ def write_json(request, given_id, access_token):
     else:
         json_id = given_id
 
+    # If we get JSON-LD, examine it and remember if any documents with
+    # resolvable @id (for which we might want to generate new Activities in our
+    # Activity Stream) will be saved. After saving update the AS.
+    id_change = False
     if request.headers.get('Content-Type') == 'application/ld+json':
-        json_string = handle_incoming_json_ld(json_string, json_id)
-
-    # TODO:
-    # - generate and store an activity stream (also, create route for that)
+        json_string, id_change = handle_incoming_json_ld(json_string, json_id)
 
     resp = Response(json_string)
 
@@ -259,6 +263,10 @@ def write_json(request, given_id, access_token):
         json_doc = JSON_document.query.filter_by(id=json_id).first()
         json_doc.json_string = json_string
         db.session.commit()
+
+    if id_change:
+        pass
+        # TODO: basically do what is done in curationactivity
 
     # TODO: mby change according to what was given? consistency w/ GET?
     resp.headers['Content-Type'] = 'application/json'
