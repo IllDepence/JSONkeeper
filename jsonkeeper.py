@@ -107,11 +107,11 @@ if 'json-ld' in config.sections() and \
 ACTIVITY_STREAM = False
 AS_COLL_URL = '-'
 if 'activity_stream' in config.sections() and \
-   len(config['activity_stream'].get('collection_url')) > 0 and\
-   len(config['activity_stream'].get('activity_generating_types')) > 0:
+   len(config['activity_stream'].get('collection_url', '')) > 0 and\
+   len(config['activity_stream'].get('activity_generating_types', '')) > 0:
     ACTIVITY_STREAM = True
-    AS_COLL_URL = config['environment'].get('collection_url', '-')
-    agt = config['json-ld'].get('activity_generating_types', '')
+    AS_COLL_URL = config['activity_stream'].get('collection_url')
+    agt = config['activity_stream'].get('activity_generating_types', '')
     AS_GEN_TYPES = [t.strip() for t in agt.split(',')]
 AS_COLL_STORE_ID = 'as_coll_{}'.format(re.sub(r'\W', '', AS_COLL_URL))
 AS_PAGE_STORE_PREFIX = 'as_page_'
@@ -122,7 +122,7 @@ db = SQLAlchemy(app)
 
 
 class JSON_document(db.Model):
-    id = db.Column(db.String(64), primary_key=True)
+    id = db.Column(db.String(255), primary_key=True)
     access_token = db.Column(db.String(255))
     json_string = db.Column(db.UnicodeText())
     created_at = db.Column(db.DateTime(timezone=True),
@@ -132,7 +132,6 @@ class JSON_document(db.Model):
 
 db.create_all()
 jsonld.set_document_loader(jsonld.requests_document_loader(timeout=3))
-
 
 for code in default_exceptions.keys():
     """ Make app return exceptions in JSON form. Also add CORS headers.
@@ -172,47 +171,47 @@ def update_activity_stream(json_string, json_id, root_elem_types):
         Collection; otherwise we just update it.
     """
 
-
     if not ACTIVITY_STREAM or \
        len(set(root_elem_types).intersection(set(AS_GEN_TYPES))) == 0:
         return
 
     coll_json = get_JSON_string_by_ID(AS_COLL_STORE_ID)
-    # if coll_json:
-    #     col_file = [f for f in all_files if 'collection' in f][0]
-    #     page_files = [f for f in all_files if 'page' in f]
-    #     AS_PAGE_STORE_PREFIX = 'as_page_'
+    col_ld_id = '{}{}'.format(BASE_URL,
+                              url_for('activity_stream_collection'))
+    if coll_json:
+        query_patt = '{}%'.format(AS_PAGE_STORE_PREFIX)
+        page_docs = JSON_document.query.filter(
+                                       JSON_document.id.like(query_patt)).all()
 
-    #     col = ASCollection(None)
-    #     col.restore_from_fs(as_folder)
-    # else:
-    #     col_ld_id = '{}{}'.format(BASE_URL, url_for('api_json_id',
-    #                                                 json_id=AS_COLL_STORE_ID))
-    #     col = ASCollection(col_ld_id)
+        col = ASCollection(None, AS_COLL_STORE_ID, db, JSON_document) # BAD
+        col.restore_from_json(coll_json, page_docs)
+    else:
+        col = ASCollection(col_ld_id, AS_COLL_STORE_ID, db, JSON_document) # BAD
 
-    # cur = Curation(None)
-    # cur.from_json(json_string)
+    cur = Curation(None)
+    cur.from_json(json_string)
 
-    # page_fn = 'page-{}.json'.format(uuid.uuid4())
-    # page_id = '{}/{}'.format(base_uri, page_fn)
-    # page = ASCollectionPage(page_id, '{}/{}'.format(as_folder, page_fn))
+    page_store_id = '{}{}'.format(AS_PAGE_STORE_PREFIX, uuid.uuid4())
+    page_ld_id = '{}{}'.format(BASE_URL,
+                               url_for('api_json_id', json_id=page_store_id))
 
-    # # Create
-    # create = ActivityBuilder.build_create(cur.get_id(), actor=actor)
-    # page.add(create)
-    # # Reference
-    # for cid in cur.get_all_canvas_ids():
-    #     ref = ActivityBuilder.build_reference(cur.get_id(), cid, actor=actor)
-    #     page.add(ref)
-    # # Offerings
-    # for dic in cur.get_range_summary():
-    #     range_id = dic.get('ran')
-    #     manifest_id = dic.get('man')
-    #     off = ActivityBuilder.build_offer(cur.get_id(), range_id,
-    #                                       manifest_id, actor=actor)
-    #     page.add(off)
+    page = ASCollectionPage(page_ld_id, page_store_id, db, JSON_document) # BAD
 
-    # col.add(page)
+    # Create
+    create = ActivityBuilder.build_create(cur.get_id())
+    page.add(create)
+    # Reference
+    for cid in cur.get_all_canvas_ids():
+        ref = ActivityBuilder.build_reference(cur.get_id(), cid)
+        page.add(ref)
+    # Offerings
+    for dic in cur.get_range_summary():
+        range_id = dic.get('ran')
+        manifest_id = dic.get('man')
+        off = ActivityBuilder.build_offer(cur.get_id(), range_id, manifest_id)
+        page.add(off)
+
+    col.add(page)
 
 
 def handle_incoming_json_ld(json_string, json_id):
@@ -245,9 +244,9 @@ def handle_incoming_json_ld(json_string, json_id):
     return json_string, id_change, root_elem_types
 
 
-def _write_json_request_wrapper(request, given_id, access_token):
+def _write_json__request_wrapper(request, given_id, access_token):
     """ 1. do request specific things
-        2. call _write_json_request_independent
+        2. call _write_json__request_independent
         3. do response specific things
     """
 
@@ -269,10 +268,10 @@ def _write_json_request_wrapper(request, given_id, access_token):
         is_json_ld = True
 
     is_new_document = not bool(given_id)
-    # 2. call _write_json_request_independent
-    json_string = _write_json_request_independent(json_string, json_id,
-                                                  access_token,
-                                                  is_new_document, is_json_ld)
+    # 2. call _write_json__request_independent
+    json_string = _write_json__request_independent(json_string, json_id,
+                                                   access_token,
+                                                   is_new_document, is_json_ld)
 
     # 3. do response specific things
     resp = Response(json_string)
@@ -283,8 +282,8 @@ def _write_json_request_wrapper(request, given_id, access_token):
     return resp
 
 
-def _write_json_request_independent(json_string, json_id, access_token,
-                                    is_new_document, is_json_ld):
+def _write_json__request_independent(json_string, json_id, access_token,
+                                     is_new_document, is_json_ld):
     """ Get JSON or JSON-LD and save it to DB.`
     """
 
@@ -326,12 +325,12 @@ def write_json(request, given_id, access_token):
         If the parameter `given_id` is set the corresponding JSON document is
         expected to already exist.
 
-        This function calls _write_json_request_wrapper which in turn calls
-        _write_json_request_independent. If JSONkeeper performs internal JSON
-        document writing it will directly call _write_json_request_independent.
+        This function calls _write_json__request_wrapper which in turn calls
+        _write_json__request_independent. If JSONkeeper performs internal JSON
+        document writing it will just call _write_json__request_independent.
     """
 
-    return _write_json_request_wrapper(request, given_id, access_token)
+    return _write_json__request_wrapper(request, given_id, access_token)
 
 
 def CORS_preflight_response(request):
@@ -512,12 +511,19 @@ def api():
         return add_CORS_headers(resp)
 
 
-# @app.route('/{}'.format(AS_COLL_URL), methods=['GET', 'POST', 'OPTIONS'])
-# def activity_stream_collection():
-#     """
-#     """
-#
-#     pass
+@app.route('/{}'.format(AS_COLL_URL), methods=['GET', 'OPTIONS'])
+def activity_stream_collection():
+    """
+    """
+
+    coll_json = get_JSON_string_by_ID(AS_COLL_STORE_ID)
+
+    if coll_json:
+        resp = Response(coll_json)
+        resp.headers['Content-Type'] = 'application/activity+json'
+        return add_CORS_headers(resp), 200
+    else:
+        return abort(404, 'Activity Stream does not exist.')
 
 
 # @app.route('/{}/<json_id>/range<r_num>'.format(API_PATH),

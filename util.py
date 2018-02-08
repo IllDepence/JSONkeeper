@@ -4,9 +4,9 @@
 import datetime
 import dateutil.parser
 import json
-import os
 import uuid
 from collections import OrderedDict
+
 
 class Curation():
 
@@ -55,7 +55,7 @@ class Curation():
         return ran
 
     def add_and_fill_range(self, within, canvases, within_label=None,
-            label=None, ran_id=None):
+                           label=None, ran_id=None):
         """ Add Range and fill with Canvases. Return the Range's id
             (generated randomly when not given).
         """
@@ -67,7 +67,7 @@ class Curation():
         return ran['@id']
 
     def add_empty_range(self, within, within_label=None, label=None,
-            ran_id=None):
+                        ran_id=None):
         """ Add empty Range. Return the Range's id (generated randomly when
             not given).
         """
@@ -194,7 +194,7 @@ class Curation():
 
 class ASCollection():
 
-    def __init__(self, aid):
+    def __init__(self, ld_id, store_id, db, JSON_document_class):
         """ Create an empty Collection given an ID and a file system path to
             save to.
         """
@@ -202,7 +202,7 @@ class ASCollection():
         col = OrderedDict()
         col['@context'] = 'https://www.w3.org/ns/activitystreams'
         col['type'] = 'Collection'
-        col['id'] = aid
+        col['id'] = ld_id
         col['summary'] = ('Activities generated based on the creation of many '
                           'Curations')
         col['totalItems'] = 0
@@ -212,15 +212,19 @@ class ASCollection():
         self.total_items = 0
         self.first = None
         self.last = None
+        self.store_id = store_id
+        self.db = db
+        self.JSON_document_class = JSON_document_class
 
-    def restore_from_json(self, col_json, page_jsons):
+    def restore_from_json(self, col_json, page_docs):
         """ Restore from JSON
         """
 
         self.col = json.loads(col_json, object_pairs_hook=OrderedDict)
-        for pj in page_jsons:
-            page = ASCollectionPage(None)
-            page.from_json(pj)
+        for pd in page_docs:
+            page = ASCollectionPage(None, pd.id, self.db,
+                                    self.JSON_document_class) # BAD
+            page.from_json(pd.json_string)
             self.add(page)
 
     def get(self, key):
@@ -263,7 +267,7 @@ class ASCollection():
             print('WARNING: Collection structure is broken.')
 
         self._update_dict()
-        self.write_to_fs()
+        self.store()
 
     def _update_dict(self):
         """ Update self.col dict from member values.
@@ -286,20 +290,29 @@ class ASCollection():
         return json.dumps(self.col)
 
     def store(self):
-        pass # FIXME
-        # ideally just call  _write_json_request_independent here somehow
+        json_doc = self.JSON_document_class.query.filter_by(
+                                                      id=self.store_id).first()
+        if json_doc:
+            json_doc.json_string = self.get_json()
+            self.db.session.commit()
+        else:
+            json_doc = self.JSON_document_class(id=self.store_id,
+                                                access_token='',
+                                                json_string=self.get_json())
+            self.db.session.add(json_doc)
+            self.db.session.commit()
 
 
 class ASCollectionPage():
 
-    def __init__(self, aid):
+    def __init__(self, ld_id, store_id, db, JSON_document_class):
         """ Create an empty CollectionPage.
         """
 
         cop = OrderedDict()
         cop['@context'] = 'https://www.w3.org/ns/activitystreams'
         cop['type'] = 'CollectionPage'
-        cop['id'] = aid
+        cop['id'] = ld_id
         cop['summary'] = ('Activities generated based on the creation of one '
                           'Curation')
         cop['partOf'] = None
@@ -310,6 +323,9 @@ class ASCollectionPage():
         self.part_of = None
         self.prev = None
         self.next = None
+        self.store_id = store_id
+        self.db = db
+        self.JSON_document_class = JSON_document_class
 
     def from_json(self, json_str):
         self.cop = json.loads(json_str, object_pairs_hook=OrderedDict)
@@ -325,7 +341,7 @@ class ASCollectionPage():
     def set_part_of(self, col):
         self.part_of = col
         self.cop['partOf'] = self.part_of.get('id')
-        self.write_to_fs()
+        self.store()
 
     def set_prev(self, other):
         self.prev = other
@@ -333,7 +349,7 @@ class ASCollectionPage():
             self.cop['prev'] = self.prev.get('id')
         else:
             self.cop.pop('prev', None)
-        self.write_to_fs()
+        self.store()
 
     def set_next(self, other):
         self.next = other
@@ -341,7 +357,7 @@ class ASCollectionPage():
             self.cop['next'] = self.next.get('id')
         else:
             self.cop.pop('next', None)
-        self.write_to_fs()
+        self.store()
 
     def end_time(self):
         """ Return the latest time any of the contained Activity ended.
@@ -372,7 +388,7 @@ class ASCollectionPage():
         """
 
         self.cop['items'].append(activity)
-        self.write_to_fs()
+        self.store()
 
     def get_dict(self):
         """ Return the CollectionPage as a Python dict.
@@ -387,8 +403,17 @@ class ASCollectionPage():
         return json.dumps(self.cop)
 
     def store(self):
-        pass # FIXME
-        # ideally just call  _write_json_request_independent here somehow
+        json_doc = self.JSON_document_class.query.filter_by(
+                                                      id=self.store_id).first()
+        if json_doc:
+            json_doc.json_string = self.get_json()
+            self.db.session.commit()
+        else:
+            json_doc = self.JSON_document_class(id=self.store_id,
+                                                access_token='',
+                                                json_string=self.get_json())
+            self.db.session.add(json_doc)
+            self.db.session.commit()
 
 
 class ActivityBuilder():
