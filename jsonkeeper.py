@@ -103,6 +103,7 @@ API_PATH = config['environment'].get('custom_api_path', 'api')
 AS_COLL_URL = '-'
 if 'activity_stream' in config.sections():
     AS_COLL_URL = config['environment'].get('collection_url', '-')
+ID_REWRITE = False
 if 'json-ld' in config.sections() and \
    config['json-ld'].getboolean('id_rewrite') and \
    len(config['json-ld'].get('rewrite_types', '')) > 0:
@@ -176,7 +177,7 @@ def update_activity_stream(json_string):
     pass
 
 
-def handle_incoming_json_ld(json_str, json_id):
+def handle_incoming_json_ld(json_string, json_id):
     """ If configured, rewrite root level JSON-LD @ids.
 
         (Special treatment for sc:Range atm -- generalize later if possible.)
@@ -184,7 +185,7 @@ def handle_incoming_json_ld(json_str, json_id):
 
     # check JSON-LD validity
     try:
-        root_elem = json.loads(json_str, object_pairs_hook=OrderedDict)
+        root_elem = json.loads(json_string, object_pairs_hook=OrderedDict)
         # https://json-ld.org/spec/latest/json-ld-api/#expansion-algorithms
         expanded = jsonld.expand(root_elem)
     except Exception as e:
@@ -194,26 +195,22 @@ def handle_incoming_json_ld(json_str, json_id):
     # rewrite @ids
     id_change = False
     if ID_REWRITE:
-       root_elem_types = expanded[0]['@type']
-       if len(set(root_elem_types).intersection(set(REWRITE_TYPES))) > 0:
+        root_elem_types = expanded[0]['@type']
+        if len(set(root_elem_types).intersection(set(REWRITE_TYPES))) > 0:
             root_elem['@id'] = '{}{}'.format(BASE_URL,
-                                             url_for('api_json_id',
-                                                     json_id=json_id))
+                                            url_for('api_json_id',
+                                                    json_id=json_id))
             # TODO: for Ranges, we need to go deeper
-            json_str = json.dumps(root_elem)
+            json_string = json.dumps(root_elem)
             id_change = True
 
-    return json_str, id_change
+    return json_string, id_change
 
 
-def write_json(request, given_id, access_token):
-    """ Write JSON contents from request to file or DB. Used for POST requests
-        (new document) and PUT requests (update document). Dealing with access
-        tokens (given or not in case of POST, correct or not in case of PUT)
-        should happen *before* this method is called.
-
-        If the parameter `given_id` is set the corresponding JSON document is
-        expected to already exist.
+def _write_json_request_wrapper(request, given_id, access_token):
+    """ 1. do request specific things
+        2. call _write_json_request_independent
+        3. do response specific things
     """
 
     json_bytes = request.data
@@ -228,17 +225,36 @@ def write_json(request, given_id, access_token):
     else:
         json_id = given_id
 
+    is_json_ld = False
+    if request.headers.get('Content-Type') == 'application/ld+json':
+        is_json_ld = True
+
+    is_new_document = bool(given_id)
+    json_string = _write_json_request_independent(json_string, json_id,
+                                                  access_token,
+                                                  is_new_document, is_json_ld)
+
+    resp = Response(json_string)
+    if given_id is None:
+        resp.headers['Location'] = url_for('api_json_id', json_id=json_id)
+    # TODO: mby change according to what was given? consistency w/ GET?
+    resp.headers['Content-Type'] = 'application/json'
+
+    return resp
+
+
+def _write_json_request_independent(json_string, json_id, access_token,
+                                    is_new_document, is_json_ld):
+    """ Get JSON or JSON-LD and save it as configured in `config.ini` (as files
+        or in a DB.
+    """
+
+    id_change = False
     # If we get JSON-LD, examine it and remember if any documents with
     # resolvable @id (for which we might want to generate new Activities in our
     # Activity Stream) will be saved. After saving update the AS.
-    id_change = False
-    if request.headers.get('Content-Type') == 'application/ld+json':
+    if is_json_ld:
         json_string, id_change = handle_incoming_json_ld(json_string, json_id)
-
-    resp = Response(json_string)
-
-    if given_id is None:
-        resp.headers['Location'] = url_for('api_json_id', json_id=json_id)
 
     if STORE_FOLDER:
         # If JSON documents are to be stored in files, we need to write to file
@@ -248,7 +264,7 @@ def write_json(request, given_id, access_token):
             f.write(json_string)
         json_string = ''
 
-    if not given_id:
+    if not is_new_document:
         # If this is a new JSON document we need to create a database record
         # regardless of STORE_FOLDER's value
         json_doc = JSON_document(id=json_id,
@@ -257,7 +273,7 @@ def write_json(request, given_id, access_token):
         db.session.add(json_doc)
         db.session.commit()
 
-    if given_id and not STORE_FOLDER:
+    if is_new_document and not STORE_FOLDER:
         # If JSON documents are to be stored in the database and this is a PUT
         # request we need to update the database record
         json_doc = JSON_document.query.filter_by(id=json_id).first()
@@ -266,12 +282,26 @@ def write_json(request, given_id, access_token):
 
     if id_change:
         pass
-        # TODO: basically do what is done in curationactivity
+        # TODO curationactivity stuff here
 
-    # TODO: mby change according to what was given? consistency w/ GET?
-    resp.headers['Content-Type'] = 'application/json'
+    return json_string
 
-    return resp
+
+def write_json(request, given_id, access_token):
+    """ Write JSON contents from request to file or DB. Used for POST requests
+        (new document) and PUT requests (update document). Dealing with access
+        tokens (given or not in case of POST, correct or not in case of PUT)
+        should happen *before* this method is called.
+
+        If the parameter `given_id` is set the corresponding JSON document is
+        expected to already exist.
+
+        This function calls _write_json_request_wrapper which in turn calls
+        _write_json_request_independent. If JSONkeeper performs internal JSON
+        document writing it will directly call _write_json_request_independent.
+    """
+
+    return _write_json_request_wrapper(request, given_id, access_token)
 
 
 def CORS_preflight_response(request):
