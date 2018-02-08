@@ -17,6 +17,7 @@ from flask import (abort, Flask, jsonify, redirect, render_template, request,
 from flask_sqlalchemy import SQLAlchemy
 from pyld import jsonld
 from sqlalchemy.sql import func
+from util import ASCollection, ASCollectionPage, ActivityBuilder, Curation
 from werkzeug.exceptions import default_exceptions, HTTPException
 
 
@@ -34,7 +35,7 @@ def check_config(config):
     if not config['environment'].get('db_uri') or \
        not config['environment'].get('server_url'):
         return ('Config section [environment] needs parameters "db_uri" and "s'
-               'erver_url".')
+                'erver_url".')
 
     # Activity stream prerequesites
     if 'activity_stream' in config.sections() and \
@@ -58,7 +59,7 @@ def check_config(config):
         rwt_list = [t.split() for t in rwt.split(',')]
         valid = True
         for gen_type in agt_list:
-            if not gen_type in rwt_list:
+            if gen_type not in rwt_list:
                 valid = False
         if not valid:
             return ('Serving an Activity Stream requires all types set for Act'
@@ -100,9 +101,6 @@ else:
     STORE_FOLDER = False
 BASE_URL = config['environment']['server_url']
 API_PATH = config['environment'].get('custom_api_path', 'api')
-AS_COLL_URL = '-'
-if 'activity_stream' in config.sections():
-    AS_COLL_URL = config['environment'].get('collection_url', '-')
 ID_REWRITE = False
 if 'json-ld' in config.sections() and \
    config['json-ld'].getboolean('id_rewrite') and \
@@ -110,6 +108,17 @@ if 'json-ld' in config.sections() and \
     ID_REWRITE = True
     rwt = config['json-ld'].get('rewrite_types', '')
     REWRITE_TYPES = [t.strip() for t in rwt.split(',')]
+ACTIVITY_STREAM = False
+AS_COLL_URL = '-'
+if 'activity_stream' in config.sections() and \
+   len(config['activity_stream'].get('collection_url')) > 0 and\
+   len(config['activity_stream'].get('activity_generating_types')) > 0:
+    ACTIVITY_STREAM = True
+    AS_COLL_URL = config['environment'].get('collection_url', '-')
+    agt = config['json-ld'].get('activity_generating_types', '')
+    AS_GEN_TYPES = [t.strip() for t in agt.split(',')]
+AS_COLL_STORE_ID = 'as_coll_{}'.format(re.sub(r'\W', '', AS_COLL_URL))
+AS_PAGE_STORE_PREFIX = 'as_page_'
 
 app.config['SQLALCHEMY_DATABASE_URI'] = config['environment']['db_uri']
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
@@ -168,13 +177,53 @@ def acceptable_content_type(request):
     return False
 
 
-def update_activity_stream(json_string):
-    """ If configured, generate 
-
-        
+def update_activity_stream(json_string, json_id, root_elem_types):
+    """ If configured, generate Activities from the given JSON-LD document. If
+        we generate Activities for the first time, we also create the
+        Collection; otherwise we just update it.
     """
 
-    pass
+
+    if not ACTIVITY_STREAM or \
+       len(set(root_elem_types).intersection(set(AS_GEN_TYPES))) == 0:
+        return
+
+    coll_json = get_JSON_string_by_ID(AS_COLL_STORE_ID)
+    # if coll_json:
+    #     col_file = [f for f in all_files if 'collection' in f][0]
+    #     page_files = [f for f in all_files if 'page' in f]
+    #     AS_PAGE_STORE_PREFIX = 'as_page_'
+
+    #     col = ASCollection(None)
+    #     col.restore_from_fs(as_folder)
+    # else:
+    #     col_ld_id = '{}{}'.format(BASE_URL, url_for('api_json_id',
+    #                                                 json_id=AS_COLL_STORE_ID))
+    #     col = ASCollection(col_ld_id)
+
+    # cur = Curation(None)
+    # cur.from_json(json_string)
+
+    # page_fn = 'page-{}.json'.format(uuid.uuid4())
+    # page_id = '{}/{}'.format(base_uri, page_fn)
+    # page = ASCollectionPage(page_id, '{}/{}'.format(as_folder, page_fn))
+
+    # # Create
+    # create = ActivityBuilder.build_create(cur.get_id(), actor=actor)
+    # page.add(create)
+    # # Reference
+    # for cid in cur.get_all_canvas_ids():
+    #     ref = ActivityBuilder.build_reference(cur.get_id(), cid, actor=actor)
+    #     page.add(ref)
+    # # Offerings
+    # for dic in cur.get_range_summary():
+    #     range_id = dic.get('ran')
+    #     manifest_id = dic.get('man')
+    #     off = ActivityBuilder.build_offer(cur.get_id(), range_id,
+    #                                       manifest_id, actor=actor)
+    #     page.add(off)
+
+    # col.add(page)
 
 
 def handle_incoming_json_ld(json_string, json_id):
@@ -188,7 +237,7 @@ def handle_incoming_json_ld(json_string, json_id):
         root_elem = json.loads(json_string, object_pairs_hook=OrderedDict)
         # https://json-ld.org/spec/latest/json-ld-api/#expansion-algorithms
         expanded = jsonld.expand(root_elem)
-    except Exception as e:
+    except:
         return abort(400, 'No valid JSON-LD provided (this can be due to a con'
                           'text that can not be resolved).')
 
@@ -198,13 +247,13 @@ def handle_incoming_json_ld(json_string, json_id):
         root_elem_types = expanded[0]['@type']
         if len(set(root_elem_types).intersection(set(REWRITE_TYPES))) > 0:
             root_elem['@id'] = '{}{}'.format(BASE_URL,
-                                            url_for('api_json_id',
-                                                    json_id=json_id))
+                                             url_for('api_json_id',
+                                                     json_id=json_id))
             # TODO: for Ranges, we need to go deeper
             json_string = json.dumps(root_elem)
             id_change = True
 
-    return json_string, id_change
+    return json_string, id_change, root_elem_types
 
 
 def _write_json_request_wrapper(request, given_id, access_token):
@@ -213,6 +262,7 @@ def _write_json_request_wrapper(request, given_id, access_token):
         3. do response specific things
     """
 
+    # 1. do request specific things
     json_bytes = request.data
     try:
         json_string = json_bytes.decode('utf-8')
@@ -230,15 +280,16 @@ def _write_json_request_wrapper(request, given_id, access_token):
         is_json_ld = True
 
     is_new_document = bool(given_id)
+    # 2. call _write_json_request_independent
     json_string = _write_json_request_independent(json_string, json_id,
                                                   access_token,
                                                   is_new_document, is_json_ld)
 
+    # 3. do response specific things
     resp = Response(json_string)
     if given_id is None:
         resp.headers['Location'] = url_for('api_json_id', json_id=json_id)
-    # TODO: mby change according to what was given? consistency w/ GET?
-    resp.headers['Content-Type'] = 'application/json'
+    resp.headers['Content-Type'] = request.headers.get('Content-Type')
 
     return resp
 
@@ -246,7 +297,7 @@ def _write_json_request_wrapper(request, given_id, access_token):
 def _write_json_request_independent(json_string, json_id, access_token,
                                     is_new_document, is_json_ld):
     """ Get JSON or JSON-LD and save it as configured in `config.ini` (as files
-        or in a DB.
+        or in a DB).
     """
 
     id_change = False
@@ -254,7 +305,8 @@ def _write_json_request_independent(json_string, json_id, access_token,
     # resolvable @id (for which we might want to generate new Activities in our
     # Activity Stream) will be saved. After saving update the AS.
     if is_json_ld:
-        json_string, id_change = handle_incoming_json_ld(json_string, json_id)
+        json_string, id_change, root_elem_types = \
+                                  handle_incoming_json_ld(json_string, json_id)
 
     if STORE_FOLDER:
         # If JSON documents are to be stored in files, we need to write to file
@@ -281,8 +333,9 @@ def _write_json_request_independent(json_string, json_id, access_token,
         db.session.commit()
 
     if id_change:
-        pass
-        # TODO curationactivity stuff here
+        # We got JSON-LD and gave it a resolvable id. Depending on the config
+        # we might want to add some Activities to our AS.
+        update_activity_stream(json_string, json_id, root_elem_types)
 
     return json_string
 
@@ -499,7 +552,7 @@ def api():
 # def activity_stream_collection():
 #     """
 #     """
-# 
+#
 #     pass
 
 
@@ -507,7 +560,7 @@ def api():
 #            methods=['GET', 'OPTIONS'])
 #     """
 #     """
-# 
+#
 # def api_json_id_range(json_id, r_num):
 #     # TODO: is this too specialized?
 #     pass
