@@ -95,10 +95,6 @@ if 'firebase' in config.sections() and \
 else:
     USE_FIREBASE = False
 
-if 'storage_folder' in config['environment']:
-    STORE_FOLDER = config['environment']['storage_folder']
-else:
-    STORE_FOLDER = False
 BASE_URL = config['environment']['server_url']
 API_PATH = config['environment'].get('custom_api_path', 'api')
 ID_REWRITE = False
@@ -136,13 +132,6 @@ class JSON_document(db.Model):
 
 db.create_all()
 jsonld.set_document_loader(jsonld.requests_document_loader(timeout=3))
-
-
-if STORE_FOLDER and not os.path.exists(STORE_FOLDER):
-    """ Make sure the store folder exists if a path is configured.
-    """
-
-    os.makedirs(STORE_FOLDER)
 
 
 for code in default_exceptions.keys():
@@ -279,7 +268,7 @@ def _write_json_request_wrapper(request, given_id, access_token):
     if request.headers.get('Content-Type') == 'application/ld+json':
         is_json_ld = True
 
-    is_new_document = bool(given_id)
+    is_new_document = not bool(given_id)
     # 2. call _write_json_request_independent
     json_string = _write_json_request_independent(json_string, json_id,
                                                   access_token,
@@ -296,8 +285,7 @@ def _write_json_request_wrapper(request, given_id, access_token):
 
 def _write_json_request_independent(json_string, json_id, access_token,
                                     is_new_document, is_json_ld):
-    """ Get JSON or JSON-LD and save it as configured in `config.ini` (as files
-        or in a DB).
+    """ Get JSON or JSON-LD and save it to DB.`
     """
 
     id_change = False
@@ -308,26 +296,15 @@ def _write_json_request_independent(json_string, json_id, access_token,
         json_string, id_change, root_elem_types = \
                                   handle_incoming_json_ld(json_string, json_id)
 
-    if STORE_FOLDER:
-        # If JSON documents are to be stored in files, we need to write to file
-        # regardless of given_id's value
-        with open('{}/{}'.format(STORE_FOLDER, json_id),
-                  'w', encoding='utf-8') as f:
-            f.write(json_string)
-        json_string = ''
-
-    if not is_new_document:
+    if is_new_document:
         # If this is a new JSON document we need to create a database record
-        # regardless of STORE_FOLDER's value
         json_doc = JSON_document(id=json_id,
                                  access_token=access_token,
                                  json_string=json_string)
         db.session.add(json_doc)
         db.session.commit()
-
-    if is_new_document and not STORE_FOLDER:
-        # If JSON documents are to be stored in the database and this is a PUT
-        # request we need to update the database record
+    else:
+        # For existing documents we need to update the database record
         json_doc = JSON_document.query.filter_by(id=json_id).first()
         json_doc.json_string = json_string
         db.session.commit()
@@ -341,8 +318,8 @@ def _write_json_request_independent(json_string, json_id, access_token,
 
 
 def write_json(request, given_id, access_token):
-    """ Write JSON contents from request to file or DB. Used for POST requests
-        (new document) and PUT requests (update document). Dealing with access
+    """ Write JSON contents from request to DB. Used for POST requests (new
+        document) and PUT requests (update document). Dealing with access
         tokens (given or not in case of POST, correct or not in case of PUT)
         should happen *before* this method is called.
 
@@ -419,15 +396,9 @@ def get_access_token(request):
 def get_JSON_string_by_ID(json_id):
     json_string = None
 
-    if STORE_FOLDER:
-        json_location = '{}/{}'.format(STORE_FOLDER, json_id)
-        if os.path.isfile(json_location):
-            with open(json_location, 'r', encoding='utf-8') as f:
-                json_string = f.read()
-    else:
-        json_doc = JSON_document.query.filter_by(id=json_id).first()
-        if json_doc:
-            json_string = json_doc.json_string
+    json_doc = JSON_document.query.filter_by(id=json_id).first()
+    if json_doc:
+        json_string = json_doc.json_string
 
     return json_string
 
@@ -495,9 +466,6 @@ def handle_delete_request(request, json_id):
                 json_doc.access_token == '':
             db.session.delete(json_doc)
             db.session.commit()
-            if STORE_FOLDER:
-                json_location = '{}/{}'.format(STORE_FOLDER, json_id)
-                os.remove(json_location)
             resp = Response('')
             return add_CORS_headers(resp), 200
         else:
@@ -512,11 +480,7 @@ def index():
         here.
     """
 
-    if STORE_FOLDER:
-        json_files = [f.path for f in os.scandir(STORE_FOLDER) if f.is_file()]
-        num_files = len(json_files)
-    else:
-        num_files = JSON_document.query.count()
+    num_files = JSON_document.query.count()
 
     status_msg = 'Storing {} JSON documents.'.format(num_files)
 

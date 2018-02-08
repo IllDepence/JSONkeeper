@@ -14,8 +14,8 @@ A minimal flask web application made for API access to store and retrieve JSON d
     * `server_url` is supposed to be set up to the TLD or port, without any path<br>(e.g. `http://ikeepjson.com` but not `http://sirtetris.com/jsonkeeper`)
     * `api_path` specifies the endpoint for API access<br>(e.g. `api` →  `http://ikeepjson.com/api` or `http://sirtetris.com/jsonkeeper/api`)
 * optional
-    * `storage_folder` can be set so that JSON documents are not stored in the database but as files in a folder
     * `service_account_key_file` can be set for Google Firebase integration ([details below](#restrict-access-to-put-and-delete))
+    * TODO: add new JSON-LD and AS config options
 
 ## Serve
 ### Development
