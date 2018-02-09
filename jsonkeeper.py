@@ -148,7 +148,16 @@ def handle_incoming_json_ld(json_string, json_id):
             root_elem['@id'] = '{}{}'.format(app.cfg.serv_url(),
                                              url_for('api_json_id',
                                                      json_id=json_id))
-            # TODO: for Ranges, we need to go deeper
+
+            # Special hardcoded custom behaviour for Curations here :F
+            new_ranges = []
+            if 'http://codh.rois.ac.jp/iiif/curation/1#Curation' in \
+               root_elem_types:
+                for idx, ran in enumerate(root_elem['selections']):
+                    ran['@id'] = '{}/range{}'.format(root_elem['@id'], idx+1)
+                    new_ranges.append(ran)
+            root_elem['selections'] = new_ranges
+
             json_string = json.dumps(root_elem)
             id_change = True
 
@@ -445,7 +454,8 @@ def api():
 
 @app.route('/{}'.format(app.cfg.as_coll_url()), methods=['GET', 'OPTIONS'])
 def activity_stream_collection():
-    """
+    """ Special API endpoint for serving an Activity Stream in form of a
+        as:Collection.
     """
 
     coll_json = get_actstr_collection()
@@ -458,14 +468,32 @@ def activity_stream_collection():
         return abort(404, 'Activity Stream does not exist.')
 
 
-# @app.route('/{}/<json_id>/range<r_num>'.format(app.cfg.api_path()),
-#            methods=['GET', 'OPTIONS'])
-#     """
-#     """
-#
-# def api_json_id_range(json_id, r_num):
-#     # TODO: is this too specialized?
-#     pass
+@app.route('/{}/<json_id>/range<r_num>'.format(app.cfg.api_path()),
+           methods=['GET', 'OPTIONS'])
+def api_json_id_range(json_id, r_num):
+    """ Special API endpoint for sc:Ranges in JSON-LD documents.
+    """
+
+    json_string = get_JSON_string_by_ID(json_id)
+    if json_string:
+        cur = Curation(None)
+        cur.from_json(json_string)
+        if 'selections' not in cur.cur:
+            return abort(404, ('JSON document with ID {} does not contain any '
+                               'Ranges.'.format(json_id)))
+        # TODO: do proper checking if we actually serve Ranges here
+        ranges = cur.cur['selections']
+
+        if int(r_num) <= len(ranges):
+            r_idx = int(r_num) - 1
+            resp = Response(json.dumps(ranges[r_idx]))
+            resp.headers['Content-Type'] = 'application/json'
+            return add_CORS_headers(resp), 200
+        else:
+            return abort(404, ('This JSON document does not contain {} ranges '
+                               '(only {}).').format(r_num, len(ranges)))
+    else:
+        return abort(404, 'JSON document with ID {} not found'.format(json_id))
 
 
 @app.route('/{}/<json_id>'.format(app.cfg.api_path()),
