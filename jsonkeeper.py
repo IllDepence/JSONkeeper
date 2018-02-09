@@ -16,7 +16,9 @@ from flask import abort, Flask, jsonify, redirect, request, Response, url_for
 from flask_sqlalchemy import SQLAlchemy
 from pyld import jsonld
 from sqlalchemy.sql import func
-from util import ASCollection, ASCollectionPage, ActivityBuilder, Curation
+from util.iiif import Curation
+from util.activity_stream import (ASCollection, ASCollectionPage,
+                                  ActivityBuilder)
 from werkzeug.exceptions import default_exceptions, HTTPException
 
 

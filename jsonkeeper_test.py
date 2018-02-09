@@ -2,7 +2,6 @@ import configparser
 import json
 import jsonkeeper
 import os
-import shutil
 import tempfile
 import unittest
 from flask_sqlalchemy import SQLAlchemy
