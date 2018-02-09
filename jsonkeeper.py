@@ -12,8 +12,7 @@ import sys
 import uuid
 from collections import OrderedDict
 from firebase_admin import auth as firebase_auth
-from flask import (abort, Flask, jsonify, redirect, render_template, request,
-                   Response, url_for)
+from flask import abort, Flask, jsonify, redirect, request, Response, url_for
 from flask_sqlalchemy import SQLAlchemy
 from pyld import jsonld
 from sqlalchemy.sql import func
@@ -175,13 +174,11 @@ def update_activity_stream(json_string, json_id, root_elem_types):
        len(set(root_elem_types).intersection(set(AS_GEN_TYPES))) == 0:
         return
 
-    coll_json = get_JSON_string_by_ID(AS_COLL_STORE_ID)
+    coll_json = get_actstr_collection()
     col_ld_id = '{}{}'.format(BASE_URL,
                               url_for('activity_stream_collection'))
     if coll_json:
-        query_patt = '{}%'.format(AS_PAGE_STORE_PREFIX)
-        page_docs = JSON_document.query.filter(
-                                       JSON_document.id.like(query_patt)).all()
+        page_docs = get_actstr_collection_pages()
 
         col = ASCollection(None, AS_COLL_STORE_ID, db, JSON_document) # BAD
         col.restore_from_json(coll_json, page_docs)
@@ -402,6 +399,15 @@ def get_JSON_string_by_ID(json_id):
     return json_string
 
 
+def get_actstr_collection_pages():
+    query_patt = '{}%'.format(AS_PAGE_STORE_PREFIX)
+    return JSON_document.query.filter(JSON_document.id.like(query_patt)).all()
+
+
+def get_actstr_collection():
+    return get_JSON_string_by_ID(AS_COLL_STORE_ID)
+
+
 def handle_post_request(request):
     """ Handle request with the purpose of storing a new JSON document.
     """
@@ -480,16 +486,27 @@ def index():
     """
 
     num_files = JSON_document.query.count()
-
     status_msg = 'Storing {} JSON documents.'.format(num_files)
+
+    coll_json = get_actstr_collection()
+    if coll_json:
+
+        num_col_pages = 0
+        page_docs = get_actstr_collection_pages()
+        if page_docs:
+            num_col_pages = len(page_docs)
+
+        coll_url = '{}{}'.format(BASE_URL,
+                                 url_for('activity_stream_collection'))
+        status_msg += (' Serving an Activity Stream Collection with {} Collect'
+                       'ionPages at {}'.format(num_col_pages, coll_url))
 
     if request.accept_mimetypes.accept_json:
         resp = jsonify({'message': status_msg})
         return add_CORS_headers(resp), 200
     else:
-        resp = render_template('index.html',
-                               api_url=url_for('api'),
-                               status_msg=status_msg)
+        resp = Response(status_msg)
+        resp.headers['Content-Type'] = 'text/plain; charset=utf-8'
         return add_CORS_headers(resp), 200
 
 
@@ -516,7 +533,7 @@ def activity_stream_collection():
     """
     """
 
-    coll_json = get_JSON_string_by_ID(AS_COLL_STORE_ID)
+    coll_json = get_actstr_collection()
 
     if coll_json:
         resp = Response(coll_json)
