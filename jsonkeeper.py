@@ -5,9 +5,7 @@
 
 import firebase_admin
 import json
-import os
 import re
-import sys
 import uuid
 from collections import OrderedDict
 from firebase_admin import auth as firebase_auth
@@ -31,6 +29,7 @@ if app.cfg.use_frbs():
 app.config['SQLALCHEMY_DATABASE_URI'] = app.cfg.db_uri()
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db = SQLAlchemy(app)
+
 
 class JSON_document(db.Model):
     id = db.Column(db.String(255), primary_key=True)
@@ -92,10 +91,12 @@ def update_activity_stream(json_string, json_id, root_elem_types):
     if coll_json:
         page_docs = get_actstr_collection_pages()
 
-        col = ASCollection(None, app.cfg.as_coll_store_id(), db, JSON_document) # BAD
+        col = ASCollection(None, app.cfg.as_coll_store_id(), db,
+                           JSON_document)  # BAD
         col.restore_from_json(coll_json, page_docs)
     else:
-        col = ASCollection(col_ld_id, app.cfg.as_coll_store_id(), db, JSON_document) # BAD
+        col = ASCollection(col_ld_id, app.cfg.as_coll_store_id(), db,
+                           JSON_document)  # BAD
 
     cur = Curation(None)
     cur.from_json(json_string)
@@ -104,7 +105,8 @@ def update_activity_stream(json_string, json_id, root_elem_types):
     page_ld_id = '{}{}'.format(app.cfg.serv_url(),
                                url_for('api_json_id', json_id=page_store_id))
 
-    page = ASCollectionPage(page_ld_id, page_store_id, db, JSON_document) # BAD
+    page = ASCollectionPage(page_ld_id, page_store_id, db,
+                            JSON_document)  # BAD
 
     # Create
     create = ActivityBuilder.build_create(cur.get_id())
@@ -422,7 +424,8 @@ def index():
         return add_CORS_headers(resp), 200
 
 
-@app.route('/{}'.format(app.cfg.api_path()), methods=['GET', 'POST', 'OPTIONS'])
+@app.route('/{}'.format(app.cfg.api_path()),
+           methods=['GET', 'POST', 'OPTIONS'])
 def api():
     """ API endpoint for posting new JSON documents.
 

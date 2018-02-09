@@ -1,12 +1,8 @@
-import configparser
 import json
 import jsonkeeper
-import os
-import tempfile
 import unittest
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy.sql import func
-from util.config import Cfg
 
 
 class JsonStoreTestCase(unittest.TestCase):
@@ -208,15 +204,13 @@ class JsonStoreTestCase(unittest.TestCase):
         json_obj = json.loads(resp.data.decode('utf-8'))
         self.assertEqual(json_obj['@type'], 'cr:Curation')
         self.assertNotEqual(json_obj['@id'], init_id)
-        location = resp.headers.get('Location')
+        # location = resp.headers.get('Location')
         # self.assertEqual(json_obj['@id'], location)
         # for some reason location doesn't include a port for the unit test
         # BUT it works when JSONkeeper is run with python -m flask run
 
         resp = self.app.get('/{}'.format(jsonkeeper.app.cfg.as_coll_url()))
         self.assertEqual(resp.status, '200 OK')
-
-
 
     def test_protected_JSON(self):
         """ Test update and delete restrictions of a JSON document when access
