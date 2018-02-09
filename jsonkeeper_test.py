@@ -38,6 +38,11 @@ class JsonStoreTestCase(unittest.TestCase):
         self.API_PATH = 'api'
         if 'api_path' in config['environment']:
             self.API_PATH = config['environment']['api_path']
+        self.AS_COLL_URL = '-'
+        if 'activity_stream' in config.sections() and \
+        len(config['activity_stream'].get('collection_url', '')) > 0 and \
+        len(config['activity_stream'].get('activity_generating_types', '')) > 0:
+            self.AS_COLL_URL = config['activity_stream']['collection_url']
 
     def tearDown(self):
         """ Remove tmp directory set up for JSON storage.
@@ -56,17 +61,19 @@ class JsonStoreTestCase(unittest.TestCase):
         json_obj = json.loads(resp.data.decode('utf-8'))
         self.assertIn('message', json_obj)
         self.assertIn('JSON documents.', json_obj['message'])
+        self.assertNotIn(b'Activity Stream', resp.data)
 
-    def test_info_page_HTML(self):
+    def test_info_page_PLAIN(self):
         """ Test info page when Accept header is not set to application/json
         """
 
         resp = self.app.get('/')
 
         self.assertEqual(resp.status, '200 OK')
-        self.assertIn('text/html', resp.headers.get('Content-Type'))
-        self.assertIn(b'<!doctype html>', resp.data)
+        self.assertIn('text/plain', resp.headers.get('Content-Type'))
         self.assertIn(b'JSON documents.', resp.data)
+        self.assertNotIn(b'Activity Stream', resp.data)
+        self.assertNotIn(b'{', resp.data)
 
     def test_redirects(self):
         """ Test redirection to info page.
@@ -91,6 +98,13 @@ class JsonStoreTestCase(unittest.TestCase):
         self.assertEqual(resp.status, '404 NOT FOUND')
 
         resp = self.app.delete('/{}/foo'.format(self.API_PATH))
+        self.assertEqual(resp.status, '404 NOT FOUND')
+
+    def test_nonexistent_AS(self):
+        """ Test 404 for when Activity Stream doesn't exist.
+        """
+
+        resp = self.app.get('/{}'.format(self.AS_COLL_URL))
         self.assertEqual(resp.status, '404 NOT FOUND')
 
     def test_unprotected_JSON(self):
@@ -154,6 +168,66 @@ class JsonStoreTestCase(unittest.TestCase):
         json_docs = jsonkeeper.JSON_document.query.all()
         json_ids = [j.id for j in json_docs]
         self.assertNotIn(json_id, json_ids)
+
+    def test_AS(self):
+        """ Activity Stream.
+        """
+
+        # FIXME: expected outcomes are dependent on config values. This test
+        #        only makes sense if documents of the @type
+        #        http://codh.rois.ac.jp/iiif/curation/1#Curation
+        #        are configured as Activity generating.
+
+        print('''
+              @test_AS()
+
+              # FIXME: expected outcomes are dependent on config values. This
+              #        test only makes sense if documents of the @type
+              #        http://codh.rois.ac.jp/iiif/curation/1#Curation
+              #        are configured as Activity generating.
+              ''')
+
+        init_id = 'foo'
+        curation_json = '''
+            {
+              "@context":[
+                "http://iiif.io/api/presentation/2/context.json",
+                "http://codh.rois.ac.jp/iiif/curation/1/context.json"
+                ],
+              "@type":"cr:Curation",
+              "selections":[],
+              "@id":"'''
+        curation_json += init_id
+        curation_json += '"}'
+
+        # # JSON
+        resp = self.app.post('/{}'.format(self.API_PATH),
+                             headers={'Accept': 'application/json',
+                                      'Content-Type': 'application/json'},
+                             data=curation_json)
+        self.assertEqual(resp.status, '201 CREATED')
+        json_obj = json.loads(resp.data.decode('utf-8'))
+        self.assertEqual(json_obj['@type'], 'cr:Curation')
+        self.assertEqual(json_obj['@id'], init_id)
+
+        # # JSON-LD
+        resp = self.app.post('/{}'.format(self.API_PATH),
+                             headers={'Accept': 'application/json',
+                                      'Content-Type': 'application/ld+json'},
+                             data=curation_json)
+        self.assertEqual(resp.status, '201 CREATED')
+        json_obj = json.loads(resp.data.decode('utf-8'))
+        self.assertEqual(json_obj['@type'], 'cr:Curation')
+        self.assertNotEqual(json_obj['@id'], init_id)
+        location = resp.headers.get('Location')
+        # self.assertEqual(json_obj['@id'], location)
+        # for some reason location doesn't include a port for the unit test
+        # BUT it works when JSONkeeper is run with python -m flask run
+
+        resp = self.app.get('/{}'.format(self.AS_COLL_URL))
+        self.assertEqual(resp.status, '200 OK')
+
+
 
     def test_protected_JSON(self):
         """ Test update and delete restrictions of a JSON document when access

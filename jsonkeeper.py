@@ -106,7 +106,7 @@ if 'json-ld' in config.sections() and \
 ACTIVITY_STREAM = False
 AS_COLL_URL = '-'
 if 'activity_stream' in config.sections() and \
-   len(config['activity_stream'].get('collection_url', '')) > 0 and\
+   len(config['activity_stream'].get('collection_url', '')) > 0 and \
    len(config['activity_stream'].get('activity_generating_types', '')) > 0:
     ACTIVITY_STREAM = True
     AS_COLL_URL = config['activity_stream'].get('collection_url')
