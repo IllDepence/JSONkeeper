@@ -6,6 +6,7 @@ import tempfile
 import unittest
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy.sql import func
+from util.config import Cfg
 
 
 class JsonStoreTestCase(unittest.TestCase):
@@ -30,18 +31,6 @@ class JsonStoreTestCase(unittest.TestCase):
 
         jsonkeeper.app.testing = True
         self.app = jsonkeeper.app.test_client()
-
-        # ↓ not really nice since it's duplicate code from the app iself
-        config = configparser.ConfigParser()
-        config.read('config.ini')
-        self.API_PATH = 'api'
-        if 'api_path' in config['environment']:
-            self.API_PATH = config['environment']['api_path']
-        self.AS_COLL_URL = '-'
-        if 'activity_stream' in config.sections() and \
-        len(config['activity_stream'].get('collection_url', '')) > 0 and \
-        len(config['activity_stream'].get('activity_generating_types', '')) > 0:
-            self.AS_COLL_URL = config['activity_stream']['collection_url']
 
     def tearDown(self):
         """ Remove tmp directory set up for JSON storage.
@@ -78,32 +67,32 @@ class JsonStoreTestCase(unittest.TestCase):
         """ Test redirection to info page.
         """
 
-        resp = self.app.get('/{}'.format(self.API_PATH))
+        resp = self.app.get('/{}'.format(jsonkeeper.app.cfg.api_path()))
         self.assertEqual(resp.status, '302 FOUND')
-        resp = self.app.get('/{}/foo'.format(self.API_PATH))
+        resp = self.app.get('/{}/foo'.format(jsonkeeper.app.cfg.api_path()))
         self.assertEqual(resp.status, '302 FOUND')
 
     def test_nonexistent_JSON(self):
         """ Test 404s for when JSON document with the given ID doesn't exist.
         """
 
-        resp = self.app.get('/{}/foo'.format(self.API_PATH),
+        resp = self.app.get('/{}/foo'.format(jsonkeeper.app.cfg.api_path()),
                             headers={'Accept': 'application/json'})
         self.assertEqual(resp.status, '404 NOT FOUND')
 
-        resp = self.app.put('/{}/foo'.format(self.API_PATH),
+        resp = self.app.put('/{}/foo'.format(jsonkeeper.app.cfg.api_path()),
                             headers={'Accept': 'application/json',
                                      'Content-Type': 'application/json'})
         self.assertEqual(resp.status, '404 NOT FOUND')
 
-        resp = self.app.delete('/{}/foo'.format(self.API_PATH))
+        resp = self.app.delete('/{}/foo'.format(jsonkeeper.app.cfg.api_path()))
         self.assertEqual(resp.status, '404 NOT FOUND')
 
     def test_nonexistent_AS(self):
         """ Test 404 for when Activity Stream doesn't exist.
         """
 
-        resp = self.app.get('/{}'.format(self.AS_COLL_URL))
+        resp = self.app.get('/{}'.format(jsonkeeper.app.cfg.as_coll_url()))
         self.assertEqual(resp.status, '404 NOT FOUND')
 
     def test_unprotected_JSON(self):
@@ -113,7 +102,7 @@ class JsonStoreTestCase(unittest.TestCase):
 
         # Create
         # # HTTP response
-        resp = self.app.post('/{}'.format(self.API_PATH),
+        resp = self.app.post('/{}'.format(jsonkeeper.app.cfg.api_path()),
                              headers={'Accept': 'application/json',
                                       'Content-Type': 'application/json'},
                              data='{"foo":"bar"}')
@@ -200,7 +189,7 @@ class JsonStoreTestCase(unittest.TestCase):
         curation_json += '"}'
 
         # # JSON
-        resp = self.app.post('/{}'.format(self.API_PATH),
+        resp = self.app.post('/{}'.format(jsonkeeper.app.cfg.api_path()),
                              headers={'Accept': 'application/json',
                                       'Content-Type': 'application/json'},
                              data=curation_json)
@@ -210,7 +199,7 @@ class JsonStoreTestCase(unittest.TestCase):
         self.assertEqual(json_obj['@id'], init_id)
 
         # # JSON-LD
-        resp = self.app.post('/{}'.format(self.API_PATH),
+        resp = self.app.post('/{}'.format(jsonkeeper.app.cfg.api_path()),
                              headers={'Accept': 'application/json',
                                       'Content-Type': 'application/ld+json'},
                              data=curation_json)
@@ -223,7 +212,7 @@ class JsonStoreTestCase(unittest.TestCase):
         # for some reason location doesn't include a port for the unit test
         # BUT it works when JSONkeeper is run with python -m flask run
 
-        resp = self.app.get('/{}'.format(self.AS_COLL_URL))
+        resp = self.app.get('/{}'.format(jsonkeeper.app.cfg.as_coll_url()))
         self.assertEqual(resp.status, '200 OK')
 
 
@@ -233,7 +222,7 @@ class JsonStoreTestCase(unittest.TestCase):
             token is provided.
         """
 
-        resp = self.app.post('/{}'.format(self.API_PATH),
+        resp = self.app.post('/{}'.format(jsonkeeper.app.cfg.api_path()),
                              headers={'Accept': 'application/json',
                                       'Content-Type': 'application/json',
                                       'X-Access-Token': 'secret'},

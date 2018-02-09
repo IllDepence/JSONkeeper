@@ -106,6 +106,7 @@ class ASCollection():
         return json.dumps(self.col)
 
     def store(self):
+        # FIXME: collection is deletable, give random acces token
         json_doc = self.JSON_document_class.query.filter_by(
                                                       id=self.store_id).first()
         if json_doc:
@@ -219,6 +220,7 @@ class ASCollectionPage():
         return json.dumps(self.cop)
 
     def store(self):
+        # FIXME: collection pages are deletable, give random acces token
         json_doc = self.JSON_document_class.query.filter_by(
                                                       id=self.store_id).first()
         if json_doc:

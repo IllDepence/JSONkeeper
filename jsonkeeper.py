@@ -3,7 +3,6 @@
     Minimal web app made for API access to store and retrieve JSON.
 """
 
-import configparser
 import firebase_admin
 import json
 import os
@@ -19,108 +18,19 @@ from sqlalchemy.sql import func
 from util.iiif import Curation
 from util.activity_stream import (ASCollection, ASCollectionPage,
                                   ActivityBuilder)
+from util.config import Cfg
 from werkzeug.exceptions import default_exceptions, HTTPException
 
 
-def check_config(config):
-    """ Check file `config.ini` for problems.
-
-        Return a problem description or False in case everything's ok.
-    """
-
-    # Always required sections
-    if 'environment' not in config.sections():
-        return 'Config file needs a [environment] section.'
-
-    # Always required values
-    if not config['environment'].get('db_uri') or \
-       not config['environment'].get('server_url'):
-        return ('Config section [environment] needs parameters "db_uri" and "s'
-                'erver_url".')
-
-    # Activity stream prerequesites
-    if 'activity_stream' in config.sections() and \
-       len(config['activity_stream'].get('collection_url', '')) > 0:
-
-        # Need to define types
-        agt = config['activity_stream'].get('activity_generating_types', '')
-        if len(agt) == 0:
-            return ('Serving an Activity Stream requires activity_generating_t'
-                    'ypes in config section [activity_stream] to be set.')
-        # Need to enable @id rewriting
-        id_rewrite = False
-        if 'json-ld' in config.sections():
-            id_rewrite = config['json-ld'].getboolean('id_rewrite')
-        if not id_rewrite:
-            return ('Serving an Activity Stream requires id_rewrite in config '
-                    'section [json-ld] to be turned on.')
-        # Defined types need to be rewritten
-        agt_list = [t.split() for t in agt.split(',')]
-        rwt = config['json-ld'].get('rewrite_types', '')
-        rwt_list = [t.split() for t in rwt.split(',')]
-        valid = True
-        for gen_type in agt_list:
-            if gen_type not in rwt_list:
-                valid = False
-        if not valid:
-            return ('Serving an Activity Stream requires all types set for Act'
-                    'ivity generation also to be set for JSON-LD @id rewriting'
-                    '.')
-
-    # TODO: instead of going through the config twice, once for sanity checking
-    #       and later again for extracting values, this function should return
-    #       - a boolean to indicate sanity of the config
-    #       - an optional message (error message for invalid config)
-    #       - a parsed config object that from then on is used
-    return False
-
-
 app = Flask(__name__)
+app.cfg = Cfg()
 
-config = configparser.ConfigParser()
-if not os.path.exists('config.ini'):
-    print('Config file "config.ini" not found.')
-    sys.exit(1)
-config.read('config.ini')
-fail = check_config(config)
-if fail:
-    print(fail)
-    sys.exit(1)
-
-if 'firebase' in config.sections() and \
-       'service_account_key_file' in config['firebase']:
-    key_file_path = config['firebase']['service_account_key_file']
-    cred = firebase_admin.credentials.Certificate(key_file_path)
+if app.cfg.use_frbs():
+    cred = firebase_admin.credentials.Certificate(app.cfg.frbs_conf())
     firebase_admin.initialize_app(cred)
-    USE_FIREBASE = True
-else:
-    USE_FIREBASE = False
-
-BASE_URL = config['environment']['server_url']
-API_PATH = config['environment'].get('custom_api_path', 'api')
-ID_REWRITE = False
-if 'json-ld' in config.sections() and \
-   config['json-ld'].getboolean('id_rewrite') and \
-   len(config['json-ld'].get('rewrite_types', '')) > 0:
-    ID_REWRITE = True
-    rwt = config['json-ld'].get('rewrite_types', '')
-    REWRITE_TYPES = [t.strip() for t in rwt.split(',')]
-ACTIVITY_STREAM = False
-AS_COLL_URL = '-'
-if 'activity_stream' in config.sections() and \
-   len(config['activity_stream'].get('collection_url', '')) > 0 and \
-   len(config['activity_stream'].get('activity_generating_types', '')) > 0:
-    ACTIVITY_STREAM = True
-    AS_COLL_URL = config['activity_stream'].get('collection_url')
-    agt = config['activity_stream'].get('activity_generating_types', '')
-    AS_GEN_TYPES = [t.strip() for t in agt.split(',')]
-AS_COLL_STORE_ID = 'as_coll_{}'.format(re.sub(r'\W', '', AS_COLL_URL))
-AS_PAGE_STORE_PREFIX = 'as_page_'
-
-app.config['SQLALCHEMY_DATABASE_URI'] = config['environment']['db_uri']
+app.config['SQLALCHEMY_DATABASE_URI'] = app.cfg.db_uri()
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db = SQLAlchemy(app)
-
 
 class JSON_document(db.Model):
     id = db.Column(db.String(255), primary_key=True)
@@ -172,26 +82,26 @@ def update_activity_stream(json_string, json_id, root_elem_types):
         Collection; otherwise we just update it.
     """
 
-    if not ACTIVITY_STREAM or \
-       len(set(root_elem_types).intersection(set(AS_GEN_TYPES))) == 0:
+    if not app.cfg.serve_as() or \
+       len(set(root_elem_types).intersection(set(app.cfg.as_types()))) == 0:
         return
 
     coll_json = get_actstr_collection()
-    col_ld_id = '{}{}'.format(BASE_URL,
+    col_ld_id = '{}{}'.format(app.cfg.serv_url(),
                               url_for('activity_stream_collection'))
     if coll_json:
         page_docs = get_actstr_collection_pages()
 
-        col = ASCollection(None, AS_COLL_STORE_ID, db, JSON_document) # BAD
+        col = ASCollection(None, app.cfg.as_coll_store_id(), db, JSON_document) # BAD
         col.restore_from_json(coll_json, page_docs)
     else:
-        col = ASCollection(col_ld_id, AS_COLL_STORE_ID, db, JSON_document) # BAD
+        col = ASCollection(col_ld_id, app.cfg.as_coll_store_id(), db, JSON_document) # BAD
 
     cur = Curation(None)
     cur.from_json(json_string)
 
-    page_store_id = '{}{}'.format(AS_PAGE_STORE_PREFIX, uuid.uuid4())
-    page_ld_id = '{}{}'.format(BASE_URL,
+    page_store_id = '{}{}'.format(app.cfg.as_pg_store_pref(), uuid.uuid4())
+    page_ld_id = '{}{}'.format(app.cfg.serv_url(),
                                url_for('api_json_id', json_id=page_store_id))
 
     page = ASCollectionPage(page_ld_id, page_store_id, db, JSON_document) # BAD
@@ -230,10 +140,10 @@ def handle_incoming_json_ld(json_string, json_id):
 
     # rewrite @ids
     id_change = False
-    if ID_REWRITE:
+    if app.cfg.id_rewr():
         root_elem_types = expanded[0]['@type']
-        if len(set(root_elem_types).intersection(set(REWRITE_TYPES))) > 0:
-            root_elem['@id'] = '{}{}'.format(BASE_URL,
+        if len(set(root_elem_types).intersection(set(app.cfg.id_types()))) > 0:
+            root_elem['@id'] = '{}{}'.format(app.cfg.serv_url(),
                                              url_for('api_json_id',
                                                      json_id=json_id))
             # TODO: for Ranges, we need to go deeper
@@ -376,7 +286,7 @@ def get_access_token(request):
         - False in case a Firebase ID token could not be verified
     """
 
-    if USE_FIREBASE and 'X-Firebase-ID-Token' in request.headers:
+    if app.cfg.use_frbs() and 'X-Firebase-ID-Token' in request.headers:
         id_token = request.headers.get('X-Firebase-ID-Token')
         try:
             decoded_token = firebase_auth.verify_id_token(id_token)
@@ -402,12 +312,12 @@ def get_JSON_string_by_ID(json_id):
 
 
 def get_actstr_collection_pages():
-    query_patt = '{}%'.format(AS_PAGE_STORE_PREFIX)
+    query_patt = '{}%'.format(app.cfg.as_pg_store_pref())
     return JSON_document.query.filter(JSON_document.id.like(query_patt)).all()
 
 
 def get_actstr_collection():
-    return get_JSON_string_by_ID(AS_COLL_STORE_ID)
+    return get_JSON_string_by_ID(app.cfg.as_coll_store_id())
 
 
 def handle_post_request(request):
@@ -498,7 +408,7 @@ def index():
         if page_docs:
             num_col_pages = len(page_docs)
 
-        coll_url = '{}{}'.format(BASE_URL,
+        coll_url = '{}{}'.format(app.cfg.serv_url(),
                                  url_for('activity_stream_collection'))
         status_msg += (' Serving an Activity Stream Collection with {} Collect'
                        'ionPages at {}'.format(num_col_pages, coll_url))
@@ -512,7 +422,7 @@ def index():
         return add_CORS_headers(resp), 200
 
 
-@app.route('/{}'.format(API_PATH), methods=['GET', 'POST', 'OPTIONS'])
+@app.route('/{}'.format(app.cfg.api_path()), methods=['GET', 'POST', 'OPTIONS'])
 def api():
     """ API endpoint for posting new JSON documents.
 
@@ -530,7 +440,7 @@ def api():
         return add_CORS_headers(resp)
 
 
-@app.route('/{}'.format(AS_COLL_URL), methods=['GET', 'OPTIONS'])
+@app.route('/{}'.format(app.cfg.as_coll_url()), methods=['GET', 'OPTIONS'])
 def activity_stream_collection():
     """
     """
@@ -545,7 +455,7 @@ def activity_stream_collection():
         return abort(404, 'Activity Stream does not exist.')
 
 
-# @app.route('/{}/<json_id>/range<r_num>'.format(API_PATH),
+# @app.route('/{}/<json_id>/range<r_num>'.format(app.cfg.api_path()),
 #            methods=['GET', 'OPTIONS'])
 #     """
 #     """
@@ -555,7 +465,7 @@ def activity_stream_collection():
 #     pass
 
 
-@app.route('/{}/<json_id>'.format(API_PATH),
+@app.route('/{}/<json_id>'.format(app.cfg.api_path()),
            methods=['GET', 'PUT', 'DELETE', 'OPTIONS'])
 def api_json_id(json_id):
     """ API endpoint for retrieving, updating and deleting JSON documents
