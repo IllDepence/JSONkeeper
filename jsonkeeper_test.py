@@ -30,6 +30,7 @@ class JsonStoreTestCase(unittest.TestCase):
         db.create_all()
 
         jsonkeeper.app.testing = True
+        jsonkeeper.app.cfg.set_debug_config()
         self.app = jsonkeeper.app.test_client()
 
     def tearDown(self):

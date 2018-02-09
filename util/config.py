@@ -73,6 +73,23 @@ class Cfg():
         cfg['as_page_store_prefix'] = 'as_page_'
         return cfg
 
+    def set_debug_config(self):
+        cfg = {}
+        cfg['db_uri'] = 'sqlite://'
+        cfg['server_url'] = 'http://localhost:5000'
+        cfg['api_path'] = 'api'     # FIXME [1]
+        cfg['use_firebase'] = False                         # maybe change
+        cfg['firebase_service_account_key_file'] = None     # at some point
+        cfg['use_id_rewrite'] = True
+        cfg['id_rewrite_types'] = ['http://codh.rois.ac.jp/iiif/curation/1#Curation']
+        cfg['as_collection_url'] = 'as/collection.json'     # FIXME [1]
+        cfg['activity_generating_types'] = cfg['id_rewrite_types']
+        cfg['as_page_store_prefix'] = 'as_page_'
+        self.cfg = cfg
+
+        # [1] Has no effect yet because these are used in jsonkeeper.py for
+        #     @route decorators
+
     def _parse_config(self, cp):
         """ Prase a configparser.ConfigParser instance and return
                 - a fail message in case of an invalid config (False otherwise)
