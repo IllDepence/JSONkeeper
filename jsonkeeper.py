@@ -481,17 +481,16 @@ def api_json_id_range(json_id, r_num):
         if 'selections' not in cur.cur:
             return abort(404, ('JSON document with ID {} does not contain any '
                                'Ranges.'.format(json_id)))
-        # TODO: do proper checking if we actually serve Ranges here
-        ranges = cur.cur['selections']
 
-        if int(r_num) <= len(ranges):
-            r_idx = int(r_num) - 1
-            resp = Response(json.dumps(ranges[r_idx]))
+        range_dict = cur.get_nth_range(int(r_num))
+
+        if range_dict:
+            resp = Response(json.dumps(range_dict))
             resp.headers['Content-Type'] = 'application/json'
             return add_CORS_headers(resp), 200
         else:
-            return abort(404, ('This JSON document does not contain {} ranges '
-                               '(only {}).').format(r_num, len(ranges)))
+            return abort(404, ('This JSON document does not contain {} ranges.'
+                               '').format(r_num))
     else:
         return abort(404, 'JSON document with ID {} not found'.format(json_id))
 

@@ -179,6 +179,12 @@ class Curation():
         return ret
 
     def _extract_manifest_id(self, dic):
+        """ Given a dict, see if it is a Manifest and if so, return the @id.
+
+            Note: uses hard coded 'sc:' prefix instead of properly expanding
+                  from a @context and checking.
+        """
+
         if '@type' in dic.keys():
             if dic['@type'] == 'sc:Manifest':
                 return dic['@id']
@@ -189,3 +195,22 @@ class Curation():
         else:
             print('WARNING: Making assumptions about classes.')
             return dic['@id']
+
+    def get_nth_range(self, n):
+        """ Return the nth Range accross all selections or False if there is no
+            nth Range and give it a @context.
+
+            Note: n starts at 1!
+        """
+
+        ranges = self.cur['selections']
+
+        if n <= len(ranges):
+            r_idx = n - 1
+            r_dict = OrderedDict()
+            r_dict['@context'] = self.cur['@context']
+            for key, val in ranges[r_idx].items():
+                r_dict[key] = val
+            return r_dict
+        else:
+            return False
