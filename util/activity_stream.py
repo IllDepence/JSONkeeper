@@ -126,7 +126,11 @@ class ASCollectionPage():
         """
 
         cop = OrderedDict()
-        cop['@context'] = 'https://www.w3.org/ns/activitystreams'
+        # FIXME: hardcoded for Curation
+        cop['@context'] = ['https://www.w3.org/ns/activitystreams',
+                           'http://iiif.io/api/presentation/2/context.json',
+                           ('http://codh.rois.ac.jp/iiif/curation/1/context.js'
+                            'on')]
         cop['type'] = 'CollectionPage'
         cop['id'] = ld_id
         cop['summary'] = ('Activities generated based on the creation of one '

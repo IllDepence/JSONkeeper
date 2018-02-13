@@ -108,18 +108,23 @@ def update_activity_stream(json_string, json_id, root_elem_types):
     page = ASCollectionPage(page_ld_id, page_store_id, db,
                             JSON_document)  # BAD
 
+    # ↓ FIXME: @context assumptions? (prefixes)
+    typed_cur = {'@type':'cr:Curation','@id':cur.get_id()}
     # Create
-    create = ActivityBuilder.build_create(cur.get_id())
+    create = ActivityBuilder.build_create(typed_cur)
     page.add(create)
     # Reference
     for cid in cur.get_all_canvas_ids():
-        ref = ActivityBuilder.build_reference(cur.get_id(), cid)
+        typed_canvas = {'@type':'sc:Canvas','@id':cid}
+        ref = ActivityBuilder.build_reference(typed_cur, typed_canvas)
         page.add(ref)
     # Offerings
     for dic in cur.get_range_summary():
-        range_id = dic.get('ran')
-        manifest_id = dic.get('man')
-        off = ActivityBuilder.build_offer(cur.get_id(), range_id, manifest_id)
+        ran_id = dic.get('ran')
+        man_id = dic.get('man')
+        typed_ran = {'@type':'sc:Range','@id':ran_id}
+        typed_man = {'@type':'sc:Manifest','@id':man_id}
+        off = ActivityBuilder.build_offer(typed_cur, typed_ran, typed_man)
         page.add(off)
 
     col.add(page)
