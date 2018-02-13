@@ -111,9 +111,6 @@ def update_activity_stream(json_string, json_id, root_elem_types):
         col = ASCollection(col_ld_id, app.cfg.as_coll_store_id(), db,
                            JSON_document)  # BAD
 
-    cur = Curation(None)
-    cur.from_json(json_string)
-
     page_store_id = '{}{}'.format(app.cfg.as_pg_store_pref(), uuid.uuid4())
     page_ld_id = '{}{}'.format(app.cfg.serv_url(),
                                url_for('api_json_id', json_id=page_store_id))
@@ -121,24 +118,34 @@ def update_activity_stream(json_string, json_id, root_elem_types):
     page = ASCollectionPage(page_ld_id, page_store_id, db,
                             JSON_document)  # BAD
 
-    # ↓ FIXME: @context assumptions? (prefixes)
-    typed_cur = {'@type':'cr:Curation','@id':cur.get_id()}
-    # Create
-    create = ActivityBuilder.build_create(typed_cur)
-    page.add(create)
-    # Reference
-    for cid in cur.get_all_canvas_ids():
-        typed_canvas = {'@type':'sc:Canvas','@id':cid}
-        ref = ActivityBuilder.build_reference(typed_cur, typed_canvas)
-        page.add(ref)
-    # Offerings
-    for dic in cur.get_range_summary():
-        ran_id = dic.get('ran')
-        man_id = dic.get('man')
-        typed_ran = {'@type':'sc:Range','@id':ran_id}
-        typed_man = {'@type':'sc:Manifest','@id':man_id}
-        off = ActivityBuilder.build_offer(typed_cur, typed_ran, typed_man)
-        page.add(off)
+    cur_type = 'http://codh.rois.ac.jp/iiif/curation/1#Curation'
+    if cur_type not in root_elem_types:
+        # Create
+        json_dict = json.loads(json_string)
+        create = ActivityBuilder.build_create(json_dict['@id'])
+        page.add(create)
+    else:
+        # Special hardcoded custom behaviour for Curations here :F
+        # ↓ FIXME: @context assumptions (prefixes)
+        cur = Curation(None)
+        cur.from_json(json_string)
+        typed_cur = {'@type':'cr:Curation','@id':cur.get_id()}
+        # Create
+        create = ActivityBuilder.build_create(typed_cur)
+        page.add(create)
+        # Reference
+        for cid in cur.get_all_canvas_ids():
+            typed_canvas = {'@type':'sc:Canvas','@id':cid}
+            ref = ActivityBuilder.build_reference(typed_cur, typed_canvas)
+            page.add(ref)
+        # Offerings
+        for dic in cur.get_range_summary():
+            ran_id = dic.get('ran')
+            man_id = dic.get('man')
+            typed_ran = {'@type':'sc:Range','@id':ran_id}
+            typed_man = {'@type':'sc:Manifest','@id':man_id}
+            off = ActivityBuilder.build_offer(typed_cur, typed_ran, typed_man)
+            page.add(off)
 
     col.add(page)
 

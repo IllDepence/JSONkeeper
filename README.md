@@ -1,21 +1,22 @@
 ![JSONkeeper](logo_500px.png)
 
-A minimal flask web application made for API access to store and retrieve JSON documents.
+A flask web application for storing JSON documents; with some special functions for JSON-LD.
 
 ## Setup
 * create virtual environment: `$ python3 -m venv venv`
 * activate virtual environment: `$ source venv/bin/activate`
 * install requirements: `$ pip install -r requirements.txt`
 
-## Configure
-* edit `config.ini`
-* mandatory
-    * `db_uri` is a [SQLAlchemy database URI](http://docs.sqlalchemy.org/en/latest/core/engines.html#database-urls)
-    * `server_url` is supposed to be set up to the TLD or port, without any path<br>(e.g. `http://ikeepjson.com` but not `http://sirtetris.com/jsonkeeper`)
-    * `api_path` specifies the endpoint for API access<br>(e.g. `api` →  `http://ikeepjson.com/api` or `http://sirtetris.com/jsonkeeper/api`)
-* optional
-    * `service_account_key_file` can be set for Google Firebase integration ([details below](#restrict-access-to-put-and-delete))
-    * TODO: add new JSON-LD and AS config options
+## Config
+section | key | default | explanation
+------- | --- | ------- | -----------
+environment | db\_uri | sqlite:///keep.db | a [SQLAlchemy database URI](http://docs.sqlalchemy.org/en/latest/core/engines.html#database-urls)
+            | server\_uri | http://localhost:5000 | server URL up to the TLD or port, without any path<br>(e.g. `http://ikeepjson.com` but not `http://sirtetris.com/jsonkeeper`)
+            | custom\_api\_path | api | specifies the endpoint for API access<br>(e.g. `api` →  `http://ikeepjson.com/api` or `http://sirtetris.com/jsonkeeper/api`)
+firebase | service\_account\_key\_file | `None` | can be set for Google Firebase integration ([details below](#restrict-access-to-put-and-delete))
+json-ld | rewrite\_types | `[]` | comma seperated list of [JSON-LD](https://json-ld.org/spec/latest/json-ld/) types for which [@id](https://json-ld.org/spec/latest/json-ld/#node-identifiers) should be set to a dereferencable URL ([details below](#json--ld))
+activity\_stream | collection\_url | `None` | path under which an [Activity Stream](https://www.w3.org/TR/activitystreams-core/) Collection should be served (e.g. `as/collection.json` →  `http://ikeepjson.com/as/collection.json`) ([details below](#activity-stream)
+                 | activity\_generating\_types | `[]` | comma seperated list of JSON-LD types for which Activites (`Create`, `Reference`, `Offer`) should be created
 
 ## Serve
 ### Development
@@ -58,22 +59,41 @@ A minimal flask web application made for API access to store and retrieve JSON d
            -H 'Accept: application/json' \
            -H 'Content-Type: application/json' \
            http://127.0.0.1/JSONkeeper/api
+&zwnj;
+
+    HTTP/1.0 201 CREATED
+    Location: http://127.0.0.1:5000/api/e14f58b0-d0ec-4f35-a83b-49c613daa7a3
+    
+    {"foo":"bar"}
 ### Retrieve
     $ curl -X GET \
            -H 'Accept: application/json' \
            http://127.0.0.1/JSONkeeper/api/<id>
+&zwnj;
+
+    HTTP/1.0 200 OK
+    
+    {"foo":"bar"}
 ### Update
     $ curl -X PUT \
            -d '{"bar":"baz"}' \
            -H 'Accept: application/json' \
            -H 'Content-Type: application/json' \
            http://127.0.0.1/JSONkeeper/api/<id>
+&zwnj;
+
+    HTTP/1.0 200 OK
+    
+    {"bar":"baz"}
 ### Delete
     $ curl -X DELETE  \
            http://127.0.0.1/JSONkeeper/api/<id>
+&zwnj;
+
+    HTTP/1.0 200 OK
 
 ### Restrict access to PUT and DELETE
-* **Firebase** (if the [configuration](#configure) points to a valid [Firebase service account key file](https://firebase.google.com/docs/admin/setup#add_firebase_to_your_app))
+* **Firebase** (if the [configuration](#config) points to a valid [Firebase service account key file](https://firebase.google.com/docs/admin/setup#add_firebase_to_your_app))
     * provide a header `X-Firebase-ID-Token` when creating a JSON document
     * the document will only be created if the ID token can be verified, otherwise a `403 FORBIDDEN` is returned; if the document is created, the application stores the authenticated user's UID
     * subsequent `PUT` and `DELETE` requests are only executed when a `X-Firebase-ID-Token` header is provided that, when decoded, results in the same UID, otherwise a `403 FORBIDDEN` is returned
@@ -95,6 +115,24 @@ A minimal flask web application made for API access to store and retrieve JSON d
             console.info(xhr.getResponseHeader('Location'));
             }
         });
+
+## JSON-LD
+JSONkeeper can be configured to host JSON-LD documents in a sensible manner.
+
+#### Example:
+If the [configuration](#config) contains a section
+
+    [json-ld]
+    rewrite_types = http://codh.rois.ac.jp/iiif/curation/1#Curation,
+                    http://iiif.io/api/presentation/2#Range
+
+and a [POST](https://github.com/IllDepence/JSONkeeper/blob/master/README.md#create) request is issued with `Content-Type` set to `application/ld+json` *and* the request's content is a valid JSON-LD document whose [expanded](https://json-ld.org/spec/latest/json-ld-api/#expansion-algorithms) `@type` is listed in he configuration, *then* the document's [@id](https://json-ld.org/spec/latest/json-ld/#node-identifiers) is set to the URL where JSONkeeper will serve the document.
+
+## Activity Stream
+JSONkeeper can be configured to serve an [Activity Stream](https://www.w3.org/TR/activitystreams-core/) in form of a Collection. The only type of Activity that is generated right now for all types of JSON-LD documents is [Create](https://www.w3.org/TR/activitystreams-vocabulary/#dfn-create).
+
+Special behaviour is defined for `http://codh.rois.ac.jp/iiif/curation/1#Curation`. For which Create, Reference and Offer Activities are generated.
+
 
 ## Logo
 The JSONkeeper logo uses image content from [十二類絵巻](http://codh.rois.ac.jp/pmjt/book/200015137/) in the [日本古典籍データセット（国文研所蔵）](http://codh.rois.ac.jp/pmjt/book/) provided by the [Center for Open Data in the Humanities](http://codh.rois.ac.jp/), used under [CC-BY-SA 4.0](http://creativecommons.org/licenses/by-sa/4.0/).
