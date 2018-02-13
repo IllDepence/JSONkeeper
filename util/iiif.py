@@ -122,11 +122,16 @@ class Curation():
 
         cnvss = []
         for ran in self.cur['selections']:
-            for can in ran['canvases']:
-                if type(can) == str:
-                    cnvss.append(can)
-                else:
-                    cnvss.append(can['@id'])
+            selector = False
+            for candidate in ['canvases', 'members']:
+                if candidate in ran.keys():
+                    selector = candidate
+            if selector:
+                for can in ran[selector]:
+                    if type(can) == str:
+                        cnvss.append(can)
+                    else:
+                        cnvss.append(can['@id'])
         return cnvss
 
     def get_range_summary(self):
