@@ -2,6 +2,17 @@
 
 A flask web application for storing JSON documents; with some special functions for JSON-LD.
 
+[](#setup)  
+[](#config)  
+[](#serve)  
+[](#test)  
+[](#usage)  
+&nbsp;&nbsp;[](#access-tokens)  
+&nbsp;&nbsp;[](#json-ld)  
+&nbsp;&nbsp;[](#activity-stream)  
+[](#logo)  
+[](#support)
+
 ## Setup
 * create virtual environment: `$ python3 -m venv venv`
 * activate virtual environment: `$ source venv/bin/activate`
@@ -13,7 +24,7 @@ section | key | default | explanation
 environment | db\_uri | sqlite:///keep.db | a [SQLAlchemy database URI](http://docs.sqlalchemy.org/en/latest/core/engines.html#database-urls)
 &zwnj;      | server\_uri | http://localhost:5000 | server URL up to the TLD or port, without any path<br>(e.g. `http://ikeepjson.com` but not `http://sirtetris.com/jsonkeeper`)
 &zwnj;      | custom\_api\_path | api | specifies the endpoint for API access<br>(e.g. `api` →  `http://ikeepjson.com/api` or `http://sirtetris.com/jsonkeeper/api`)
-firebase | service\_account\_key\_file | `None` | can be set for Google Firebase integration ([details below](#restrict-access-to-put-and-delete))
+firebase | service\_account\_key\_file | `None` | can be set for Google Firebase integration ([details below](#access-tokens))
 json-ld | rewrite\_types | `[]` | comma seperated list of [JSON-LD](https://json-ld.org/spec/latest/json-ld/) types for which [@id](https://json-ld.org/spec/latest/json-ld/#node-identifiers) should be set to a dereferencable URL ([details below](#json-ld))
 activity\_stream | collection\_url | `None` | path under which an [Activity Stream](https://www.w3.org/TR/activitystreams-core/) Collection should be served (e.g. `as/collection.json` →  `http://ikeepjson.com/as/collection.json`) ([details below](#activity-stream))
 &zwnj;           | activity\_generating\_types | `[]` | comma seperated list of JSON-LD types for which Activites (`Create`, `Reference`, `Offer`) should be created
@@ -92,7 +103,9 @@ activity\_stream | collection\_url | `None` | path under which an [Activity Stre
 
     HTTP/1.0 200 OK
 
-### Restrict access to PUT and DELETE
+### Access tokens
+
+#### Restricting access
 * **Firebase** (if the [configuration](#config) points to a valid [Firebase service account key file](https://firebase.google.com/docs/admin/setup#add_firebase_to_your_app))
     * provide a header `X-Firebase-ID-Token` when creating a JSON document
     * the document will only be created if the ID token can be verified, otherwise a `403 FORBIDDEN` is returned; if the document is created, the application stores the authenticated user's UID
@@ -100,6 +113,13 @@ activity\_stream | collection\_url | `None` | path under which an [Activity Stre
 * **Self managed**
     * provide a header `X-Access-Token` when creating a JSON document
     * subsequent `PUT` and `DELETE` requests are only executed when a `X-Access-Token` header with the same value is provided, otherwise a `403 FORBIDDEN` is returned
+
+#### List of documents for a given token
+Accessing `/<api_path>/userlist` will return a list of all hosted documents with a maching access token. This means
+
+* no access token → all unrestricted access documents
+* X-Access-Token → all documents created with this token
+* X-Firebase-ID-Token → all documents created by this user
 
 ## JSON-LD
 JSONkeeper can be configured to host JSON-LD documents in a sensible manner.
@@ -118,6 +138,7 @@ JSONkeeper can be configured to serve an [Activity Stream](https://www.w3.org/TR
 
 Special behaviour is defined for `http://codh.rois.ac.jp/iiif/curation/1#Curation`. For which Create, Reference and Offer Activities are generated.
 
+- - -
 
 ## Logo
 The JSONkeeper logo uses image content from [十二類絵巻](http://codh.rois.ac.jp/pmjt/book/200015137/) in the [日本古典籍データセット（国文研所蔵）](http://codh.rois.ac.jp/pmjt/book/) provided by the [Center for Open Data in the Humanities](http://codh.rois.ac.jp/), used under [CC-BY-SA 4.0](http://creativecommons.org/licenses/by-sa/4.0/).
