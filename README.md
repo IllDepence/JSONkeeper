@@ -14,8 +14,8 @@ environment | db\_uri | sqlite:///keep.db | a [SQLAlchemy database URI](http://d
             | server\_uri | http://localhost:5000 | server URL up to the TLD or port, without any path<br>(e.g. `http://ikeepjson.com` but not `http://sirtetris.com/jsonkeeper`)
             | custom\_api\_path | api | specifies the endpoint for API access<br>(e.g. `api` →  `http://ikeepjson.com/api` or `http://sirtetris.com/jsonkeeper/api`)
 firebase | service\_account\_key\_file | `None` | can be set for Google Firebase integration ([details below](#restrict-access-to-put-and-delete))
-json-ld | rewrite\_types | `[]` | comma seperated list of [JSON-LD](https://json-ld.org/spec/latest/json-ld/) types for which [@id](https://json-ld.org/spec/latest/json-ld/#node-identifiers) should be set to a dereferencable URL ([details below](#json--ld))
-activity\_stream | collection\_url | `None` | path under which an [Activity Stream](https://www.w3.org/TR/activitystreams-core/) Collection should be served (e.g. `as/collection.json` →  `http://ikeepjson.com/as/collection.json`) ([details below](#activity-stream)
+json-ld | rewrite\_types | `[]` | comma seperated list of [JSON-LD](https://json-ld.org/spec/latest/json-ld/) types for which [@id](https://json-ld.org/spec/latest/json-ld/#node-identifiers) should be set to a dereferencable URL ([details below](#json-ld))
+activity\_stream | collection\_url | `None` | path under which an [Activity Stream](https://www.w3.org/TR/activitystreams-core/) Collection should be served (e.g. `as/collection.json` →  `http://ikeepjson.com/as/collection.json`) ([details below](#activity-stream))
                  | activity\_generating\_types | `[]` | comma seperated list of JSON-LD types for which Activites (`Create`, `Reference`, `Offer`) should be created
 
 ## Serve
@@ -62,13 +62,13 @@ activity\_stream | collection\_url | `None` | path under which an [Activity Stre
 &zwnj;
 
     HTTP/1.0 201 CREATED
-    Location: http://127.0.0.1:5000/api/e14f58b0-d0ec-4f35-a83b-49c613daa7a3
+    Location: http://127.0.0.1/JSONkeeper/api/e14f58b0-d0ec-4f35-a83b-49c613daa7a3
     
     {"foo":"bar"}
 ### Retrieve
     $ curl -X GET \
            -H 'Accept: application/json' \
-           http://127.0.0.1/JSONkeeper/api/<id>
+           http://127.0.0.1/JSONkeeper/api/e14f58b0-d0ec-4f35-a83b-49c613daa7a3
 &zwnj;
 
     HTTP/1.0 200 OK
@@ -79,7 +79,7 @@ activity\_stream | collection\_url | `None` | path under which an [Activity Stre
            -d '{"bar":"baz"}' \
            -H 'Accept: application/json' \
            -H 'Content-Type: application/json' \
-           http://127.0.0.1/JSONkeeper/api/<id>
+           http://127.0.0.1/JSONkeeper/api/e14f58b0-d0ec-4f35-a83b-49c613daa7a3
 &zwnj;
 
     HTTP/1.0 200 OK
@@ -87,7 +87,7 @@ activity\_stream | collection\_url | `None` | path under which an [Activity Stre
     {"bar":"baz"}
 ### Delete
     $ curl -X DELETE  \
-           http://127.0.0.1/JSONkeeper/api/<id>
+           http://127.0.0.1/JSONkeeper/api/e14f58b0-d0ec-4f35-a83b-49c613daa7a3
 &zwnj;
 
     HTTP/1.0 200 OK
@@ -101,21 +101,6 @@ activity\_stream | collection\_url | `None` | path under which an [Activity Stre
     * provide a header `X-Access-Token` when creating a JSON document
     * subsequent `PUT` and `DELETE` requests are only executed when a `X-Access-Token` header with the same value is provided, otherwise a `403 FORBIDDEN` is returned
 
-### jQuery example
-    $.ajax({
-        url: 'http://127.0.0.1/JSONkeeper/api',
-        type: 'post',
-        data: '{"foo":"bar"}',
-        headers: {
-            'Accept': 'application/json',
-            'Content-Type':'application/json'
-            },
-        dataType: 'json',
-        success: function (data, status, xhr) {
-            console.info(xhr.getResponseHeader('Location'));
-            }
-        });
-
 ## JSON-LD
 JSONkeeper can be configured to host JSON-LD documents in a sensible manner.
 
@@ -126,7 +111,7 @@ If the [configuration](#config) contains a section
     rewrite_types = http://codh.rois.ac.jp/iiif/curation/1#Curation,
                     http://iiif.io/api/presentation/2#Range
 
-and a [POST](https://github.com/IllDepence/JSONkeeper/blob/master/README.md#create) request is issued with `Content-Type` set to `application/ld+json` *and* the request's content is a valid JSON-LD document whose [expanded](https://json-ld.org/spec/latest/json-ld-api/#expansion-algorithms) `@type` is listed in he configuration, *then* the document's [@id](https://json-ld.org/spec/latest/json-ld/#node-identifiers) is set to the URL where JSONkeeper will serve the document.
+and a [POST](https://github.com/IllDepence/JSONkeeper/blob/master/README.md#create) request is issued with `Content-Type` set to `application/ld+json` *and* the request's content is a valid JSON-LD document whose [expanded](https://json-ld.org/spec/latest/json-ld-api/#expansion-algorithms) `@type` is listed in the configuration, *then* the document's [@id](https://json-ld.org/spec/latest/json-ld/#node-identifiers) is set to the URL where JSONkeeper will serve the document.
 
 ## Activity Stream
 JSONkeeper can be configured to serve an [Activity Stream](https://www.w3.org/TR/activitystreams-core/) in form of a Collection. The only type of Activity that is generated right now for all types of JSON-LD documents is [Create](https://www.w3.org/TR/activitystreams-vocabulary/#dfn-create).
