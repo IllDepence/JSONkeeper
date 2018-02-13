@@ -8,12 +8,51 @@ import uuid
 from collections import OrderedDict
 
 
-class ASCollection():
+class ASWrapper():
+
+    def __init__(self, store_id, db, JSON_document_class):
+        self.dic = OrderedDict()
+        self.store_id = store_id
+        self.db = db
+        self.JSON_document_class = JSON_document_class
+
+    def get(self, key):
+        return self.dic[key]
+
+    def get_dict(self):
+        """ Return the Collection as a Python dict.
+        """
+
+        return self.dic
+
+    def get_json(self):
+        """ Return the Collection as JSON.
+        """
+
+        return json.dumps(self.dic)
+
+    def store(self):
+        json_doc = self.JSON_document_class.query.filter_by(
+                                                      id=self.store_id).first()
+        if json_doc:
+            json_doc.json_string = self.get_json()
+            self.db.session.commit()
+        else:
+            json_doc = self.JSON_document_class(id=self.store_id,
+                                                access_token=str(uuid.uuid4()),
+                                                json_string=self.get_json())
+            self.db.session.add(json_doc)
+            self.db.session.commit()
+
+
+class ASCollection(ASWrapper):
 
     def __init__(self, ld_id, store_id, db, JSON_document_class):
         """ Create an empty Collection given an ID and a file system path to
             save to.
         """
+
+        super().__init__(store_id, db, JSON_document_class)
 
         col = OrderedDict()
         col['@context'] = 'https://www.w3.org/ns/activitystreams'
@@ -24,27 +63,21 @@ class ASCollection():
         col['totalItems'] = 0
         col['first'] = None
         col['last'] = None
-        self.col = col
+        self.dic = col
         self.total_items = 0
         self.first = None
         self.last = None
-        self.store_id = store_id
-        self.db = db
-        self.JSON_document_class = JSON_document_class
 
     def restore_from_json(self, col_json, page_docs):
         """ Restore from JSON
         """
 
-        self.col = json.loads(col_json, object_pairs_hook=OrderedDict)
+        self.dic = json.loads(col_json, object_pairs_hook=OrderedDict)
         for pd in page_docs:
             page = ASCollectionPage(None, pd.id, self.db,
                                     self.JSON_document_class) # BAD
             page.from_json(pd.json_string)
             self.add(page)
-
-    def get(self, key):
-        return self.col[key]
 
     def add(self, to_add):
         """ Add a CollectionPage.
@@ -86,44 +119,21 @@ class ASCollection():
         self.store()
 
     def _update_dict(self):
-        """ Update self.col dict from member values.
+        """ Update self.dic dict from member values.
         """
 
-        self.col['first'] = self.first.get('id')
-        self.col['last'] = self.last.get('id')
-        self.col['totalItems'] = self.total_items
-
-    def get_dict(self):
-        """ Return the Collection as a Python dict.
-        """
-
-        return self.col
-
-    def get_json(self):
-        """ Return the Collection as JSON.
-        """
-
-        return json.dumps(self.col)
-
-    def store(self):
-        json_doc = self.JSON_document_class.query.filter_by(
-                                                      id=self.store_id).first()
-        if json_doc:
-            json_doc.json_string = self.get_json()
-            self.db.session.commit()
-        else:
-            json_doc = self.JSON_document_class(id=self.store_id,
-                                                access_token=str(uuid.uuid4()),
-                                                json_string=self.get_json())
-            self.db.session.add(json_doc)
-            self.db.session.commit()
+        self.dic['first'] = self.first.get('id')
+        self.dic['last'] = self.last.get('id')
+        self.dic['totalItems'] = self.total_items
 
 
-class ASCollectionPage():
+class ASCollectionPage(ASWrapper):
 
     def __init__(self, ld_id, store_id, db, JSON_document_class):
         """ Create an empty CollectionPage.
         """
+
+        super().__init__(store_id, db, JSON_document_class)
 
         cop = OrderedDict()
         # FIXME: hardcoded for Curation
@@ -139,44 +149,38 @@ class ASCollectionPage():
         # cop['prev']
         # cop['next']
         cop['items'] = []
-        self.cop = cop
+        self.dic = cop
         self.part_of = None
         self.prev = None
         self.next = None
-        self.store_id = store_id
-        self.db = db
-        self.JSON_document_class = JSON_document_class
 
     def from_json(self, json_str):
-        self.cop = json.loads(json_str, object_pairs_hook=OrderedDict)
-        self.part_of = self.cop['partOf']
-        if self.cop.get('prev'):
-            self.prev = self.cop['prev']
-        if self.cop.get('next'):
-            self.next = self.cop['next']
-
-    def get(self, key):
-        return self.cop[key]
+        self.dic = json.loads(json_str, object_pairs_hook=OrderedDict)
+        self.part_of = self.dic['partOf']
+        if self.dic.get('prev'):
+            self.prev = self.dic['prev']
+        if self.dic.get('next'):
+            self.next = self.dic['next']
 
     def set_part_of(self, col):
         self.part_of = col
-        self.cop['partOf'] = self.part_of.get('id')
+        self.dic['partOf'] = self.part_of.get('id')
         self.store()
 
     def set_prev(self, other):
         self.prev = other
         if self.prev:
-            self.cop['prev'] = self.prev.get('id')
+            self.dic['prev'] = self.prev.get('id')
         else:
-            self.cop.pop('prev', None)
+            self.dic.pop('prev', None)
         self.store()
 
     def set_next(self, other):
         self.next = other
         if self.next:
-            self.cop['next'] = self.next.get('id')
+            self.dic['next'] = self.next.get('id')
         else:
-            self.cop.pop('next', None)
+            self.dic.pop('next', None)
         self.store()
 
     def end_time(self):
@@ -184,7 +188,7 @@ class ASCollectionPage():
         """
 
         latest = datetime.datetime.fromtimestamp(0)
-        for itm in self.cop['items']:
+        for itm in self.dic['items']:
             itm_end = dateutil.parser.parse(itm['endTime'])
             if itm_end > latest:
                 latest = itm_end
@@ -207,36 +211,13 @@ class ASCollectionPage():
         """ Add an Activity to the CollectionPage's items.
         """
 
-        self.cop['items'].append(activity)
+        self.dic['items'].append(activity)
         self.store()
-
-    def get_dict(self):
-        """ Return the CollectionPage as a Python dict.
-        """
-
-        return self.cop
-
-    def get_json(self):
-        """ Return the CollectionPage as JSON.
-        """
-
-        return json.dumps(self.cop)
-
-    def store(self):
-        json_doc = self.JSON_document_class.query.filter_by(
-                                                      id=self.store_id).first()
-        if json_doc:
-            json_doc.json_string = self.get_json()
-            self.db.session.commit()
-        else:
-            json_doc = self.JSON_document_class(id=self.store_id,
-                                                access_token=str(uuid.uuid4()),
-                                                json_string=self.get_json())
-            self.db.session.add(json_doc)
-            self.db.session.commit()
 
 
 class ActivityBuilder():
+    """ Static methods for building activities.
+    """
 
     @staticmethod
     def _build_basic(**kwargs):
