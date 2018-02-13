@@ -2,16 +2,16 @@
 
 A flask web application for storing JSON documents; with some special functions for JSON-LD.
 
-[](#setup)  
-[](#config)  
-[](#serve)  
-[](#test)  
-[](#usage)  
-&nbsp;&nbsp;[](#access-tokens)  
-&nbsp;&nbsp;[](#json-ld)  
-&nbsp;&nbsp;[](#activity-stream)  
-[](#logo)  
-[](#support)
+[Setup](#setup)  
+[Config](#config)  
+[Serve](#serve)  
+[Test](#test)  
+[Usage](#usage)  
+&nbsp;&nbsp;[Access tokens](#access-tokens)  
+&nbsp;&nbsp;[JSON-LD](#json-ld)  
+&nbsp;&nbsp;[Activity Stream](#activity-stream)  
+[Logo](#logo)  
+[Support](#support)
 
 ## Setup
 * create virtual environment: `$ python3 -m venv venv`
@@ -115,7 +115,7 @@ activity\_stream | collection\_url | `None` | path under which an [Activity Stre
     * subsequent `PUT` and `DELETE` requests are only executed when a `X-Access-Token` header with the same value is provided, otherwise a `403 FORBIDDEN` is returned
 
 #### List of documents for a given token
-Accessing `/<api_path>/userlist` will return a list of all hosted documents with a maching access token. This means
+Accessing `/<api_path>/userlist` will return a list of all hosted documents with a matching access token. This means
 
 * no access token → all unrestricted access documents
 * X-Access-Token → all documents created with this token
