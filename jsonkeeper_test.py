@@ -66,7 +66,8 @@ class JsonStoreTestCase(unittest.TestCase):
 
         resp = self.app.get('/{}'.format(jsonkeeper.app.cfg.api_path()))
         self.assertEqual(resp.status, '302 FOUND')
-        resp = self.app.get('/{}/foo'.format(jsonkeeper.app.cfg.api_path()))
+        resp = self.app.get('/{}/daa1f3e9-6928-453b-81aa-45ae7f99bbe9'.format(
+                                                jsonkeeper.app.cfg.api_path()))
         self.assertEqual(resp.status, '302 FOUND')
 
     def test_nonexistent_JSON(self):
@@ -239,6 +240,33 @@ class JsonStoreTestCase(unittest.TestCase):
         resp = self.app.delete(location,
                                headers={'X-Access-Token': 'secret'})
         self.assertEqual(resp.status, '200 OK')
+
+    def test_userlist(self):
+        """ Test the /<api_path>/userlist endpoint.
+        """
+
+        resp = self.app.get('/{}/userlist'.format(
+                                                jsonkeeper.app.cfg.api_path()))
+        self.assertEqual(resp.status, '200 OK')
+        self.assertEqual(len(json.loads(resp.data.decode('utf-8'))), 0)
+        resp = self.app.post('/{}'.format(jsonkeeper.app.cfg.api_path()),
+                             headers={'Accept': 'application/json',
+                                      'Content-Type': 'application/json',
+                                      'X-Access-Token': 'secret'},
+                             data='{"foo":"bar"}')
+        resp = self.app.get('/{}/userlist'.format(
+                                                jsonkeeper.app.cfg.api_path()),
+                             headers={'Accept': 'application/json',
+                                      'X-Access-Token': 'secret'})
+        self.assertEqual(len(json.loads(resp.data.decode('utf-8'))), 1)
+        resp = self.app.get('/{}/userlist'.format(
+                                                jsonkeeper.app.cfg.api_path()),
+                             headers={'Accept': 'application/json',
+                                      'X-Access-Token': 'foo'})
+        self.assertEqual(len(json.loads(resp.data.decode('utf-8'))), 0)
+        resp = self.app.get('/{}/userlist'.format(
+                                                jsonkeeper.app.cfg.api_path()))
+        self.assertEqual(len(json.loads(resp.data.decode('utf-8'))), 0)
 
 if __name__ == '__main__':
     unittest.main()

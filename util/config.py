@@ -57,6 +57,9 @@ class Cfg():
     def as_pg_store_pref(self):
         return self.cfg['as_page_store_prefix']
 
+    def doc_id_patt(self):
+        return self.cfg['doc_id_pattern']
+
     def _get_default_config(self):
         # later read from config file
         cfg = {}
@@ -71,6 +74,8 @@ class Cfg():
         cfg['activity_generating_types'] = []
         # only internally used
         cfg['as_page_store_prefix'] = 'as_page_'
+        cfg['doc_id_pattern'] = ('[a-z0-9]{8}-[a-z0-9]{4}-[a-z0-9]{4}-'
+                                 '[a-z0-9]{4}-[a-z0-9]{12}')
         return cfg
 
     def set_debug_config(self):
@@ -85,6 +90,8 @@ class Cfg():
         cfg['as_collection_url'] = 'as/collection.json'     # FIXME [1]
         cfg['activity_generating_types'] = cfg['id_rewrite_types']
         cfg['as_page_store_prefix'] = 'as_page_'
+        cfg['doc_id_pattern'] = ('[a-z0-9]{8}-[a-z0-9]{4}-[a-z0-9]{4}-'
+                                 '[a-z0-9]{4}-[a-z0-9]{12}')
         self.cfg = cfg
 
         # [1] Has no effect yet because these are used in jsonkeeper.py for

@@ -18,10 +18,23 @@ from util.activity_stream import (ASCollection, ASCollectionPage,
                                   ActivityBuilder)
 from util.config import Cfg
 from werkzeug.exceptions import default_exceptions, HTTPException
+from werkzeug.routing import BaseConverter
 
 
 app = Flask(__name__)
 app.cfg = Cfg()
+
+class RegexConverter(BaseConverter):
+    """ Make it possible to distinguish routes by <regex("[exampl]"):>.
+
+        https://stackoverflow.com/a/5872904
+    """
+
+    def __init__(self, url_map, *items):
+        super(RegexConverter, self).__init__(url_map)
+        self.regex = items[0]
+
+app.url_map.converters['regex'] = RegexConverter
 
 if app.cfg.use_frbs():
     cred = firebase_admin.credentials.Certificate(app.cfg.frbs_conf())
@@ -327,6 +340,14 @@ def get_JSON_string_by_ID(json_id):
     return json_string
 
 
+def get_document_IDs_by_access_token(token):
+    docs = JSON_document.query.filter_by(access_token=token).all()
+    if docs:
+        return [d.id for d in docs]
+    else:
+        return []
+
+
 def get_actstr_collection_pages():
     query_patt = '{}%'.format(app.cfg.as_pg_store_pref())
     return JSON_document.query.filter(JSON_document.id.like(query_patt)).all()
@@ -463,6 +484,9 @@ def activity_stream_collection():
         as:Collection.
     """
 
+    if request.method == 'OPTIONS':
+        return CORS_preflight_response(request)
+
     coll_json = get_actstr_collection()
 
     if coll_json:
@@ -473,7 +497,30 @@ def activity_stream_collection():
         return abort(404, 'Activity Stream does not exist.')
 
 
-@app.route('/{}/<json_id>/range<r_num>'.format(app.cfg.api_path()),
+@app.route('/{}/userlist'.format(app.cfg.api_path()),
+           methods=['GET', 'OPTIONS'])
+def api_userlist():
+    """ Return a list of URLs to all documents stored with the same access
+        token as this request.
+    """
+
+    if request.method == 'OPTIONS':
+        return CORS_preflight_response(request)
+
+    token = get_access_token(request)
+    ids = get_document_IDs_by_access_token(token)
+    urls = []
+
+    for aid in ids:
+        urls.append('{}{}'.format(app.cfg.serv_url(),
+                                  url_for('api_json_id', json_id=aid)))
+    resp = jsonify(urls)
+    return add_CORS_headers(resp), 200
+
+
+@app.route('/{}/<json_id>/range<r_num>'.format(app.cfg.api_path(),
+                                               app.cfg.doc_id_patt()
+                                              ),
            methods=['GET', 'OPTIONS'])
 def api_json_id_range(json_id, r_num):
     """ Special API endpoint for sc:Ranges in JSON-LD documents.
@@ -500,7 +547,9 @@ def api_json_id_range(json_id, r_num):
         return abort(404, 'JSON document with ID {} not found'.format(json_id))
 
 
-@app.route('/{}/<json_id>'.format(app.cfg.api_path()),
+@app.route('/{}/<regex("{}"):json_id>'.format(app.cfg.api_path(),
+                                              app.cfg.doc_id_patt()
+                                             ),
            methods=['GET', 'PUT', 'DELETE', 'OPTIONS'])
 def api_json_id(json_id):
     """ API endpoint for retrieving, updating and deleting JSON documents
