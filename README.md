@@ -11,12 +11,12 @@ A flask web application for storing JSON documents; with some special functions 
 section | key | default | explanation
 ------- | --- | ------- | -----------
 environment | db\_uri | sqlite:///keep.db | a [SQLAlchemy database URI](http://docs.sqlalchemy.org/en/latest/core/engines.html#database-urls)
-            | server\_uri | http://localhost:5000 | server URL up to the TLD or port, without any path<br>(e.g. `http://ikeepjson.com` but not `http://sirtetris.com/jsonkeeper`)
-            | custom\_api\_path | api | specifies the endpoint for API access<br>(e.g. `api` →  `http://ikeepjson.com/api` or `http://sirtetris.com/jsonkeeper/api`)
+&zwnj;      | server\_uri | http://localhost:5000 | server URL up to the TLD or port, without any path<br>(e.g. `http://ikeepjson.com` but not `http://sirtetris.com/jsonkeeper`)
+&zwnj;      | custom\_api\_path | api | specifies the endpoint for API access<br>(e.g. `api` →  `http://ikeepjson.com/api` or `http://sirtetris.com/jsonkeeper/api`)
 firebase | service\_account\_key\_file | `None` | can be set for Google Firebase integration ([details below](#restrict-access-to-put-and-delete))
 json-ld | rewrite\_types | `[]` | comma seperated list of [JSON-LD](https://json-ld.org/spec/latest/json-ld/) types for which [@id](https://json-ld.org/spec/latest/json-ld/#node-identifiers) should be set to a dereferencable URL ([details below](#json-ld))
 activity\_stream | collection\_url | `None` | path under which an [Activity Stream](https://www.w3.org/TR/activitystreams-core/) Collection should be served (e.g. `as/collection.json` →  `http://ikeepjson.com/as/collection.json`) ([details below](#activity-stream))
-                 | activity\_generating\_types | `[]` | comma seperated list of JSON-LD types for which Activites (`Create`, `Reference`, `Offer`) should be created
+&zwnj;           | activity\_generating\_types | `[]` | comma seperated list of JSON-LD types for which Activites (`Create`, `Reference`, `Offer`) should be created
 
 ## Serve
 ### Development
