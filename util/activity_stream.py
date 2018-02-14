@@ -6,15 +6,14 @@ import dateutil.parser
 import json
 import uuid
 from collections import OrderedDict
+from jsonkeeper.models import db, JSON_document
 
 
 class ASWrapper():
 
-    def __init__(self, store_id, db, JSON_document_class):
+    def __init__(self, store_id):
         self.dic = OrderedDict()
         self.store_id = store_id
-        self.db = db
-        self.JSON_document_class = JSON_document_class
 
     def get(self, key):
         return self.dic[key]
@@ -32,27 +31,26 @@ class ASWrapper():
         return json.dumps(self.dic)
 
     def store(self):
-        json_doc = self.JSON_document_class.query.filter_by(
-                                                      id=self.store_id).first()
+        json_doc = JSON_document.query.filter_by(id=self.store_id).first()
         if json_doc:
             json_doc.json_string = self.get_json()
-            self.db.session.commit()
+            db.session.commit()
         else:
-            json_doc = self.JSON_document_class(id=self.store_id,
-                                                access_token=str(uuid.uuid4()),
-                                                json_string=self.get_json())
-            self.db.session.add(json_doc)
-            self.db.session.commit()
+            json_doc = JSON_document(id=self.store_id,
+                                     access_token=str(uuid.uuid4()),
+                                     json_string=self.get_json())
+            db.session.add(json_doc)
+            db.session.commit()
 
 
 class ASCollection(ASWrapper):
 
-    def __init__(self, ld_id, store_id, db, JSON_document_class):
+    def __init__(self, ld_id, store_id):
         """ Create an empty Collection given an ID and a file system path to
             save to.
         """
 
-        super().__init__(store_id, db, JSON_document_class)
+        super().__init__(store_id)
 
         col = OrderedDict()
         col['@context'] = 'https://www.w3.org/ns/activitystreams'
@@ -74,8 +72,7 @@ class ASCollection(ASWrapper):
 
         self.dic = json.loads(col_json, object_pairs_hook=OrderedDict)
         for pd in page_docs:
-            page = ASCollectionPage(None, pd.id, self.db,
-                                    self.JSON_document_class) # BAD
+            page = ASCollectionPage(None, pd.id)
             page.from_json(pd.json_string)
             self.add(page)
 
@@ -129,11 +126,11 @@ class ASCollection(ASWrapper):
 
 class ASCollectionPage(ASWrapper):
 
-    def __init__(self, ld_id, store_id, db, JSON_document_class):
+    def __init__(self, ld_id, store_id):
         """ Create an empty CollectionPage.
         """
 
-        super().__init__(store_id, db, JSON_document_class)
+        super().__init__(store_id)
 
         cop = OrderedDict()
         # FIXME: hardcoded for Curation

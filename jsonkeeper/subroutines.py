@@ -42,20 +42,17 @@ def update_activity_stream(json_string, json_id, root_elem_types):
     if coll_json:
         page_docs = get_actstr_collection_pages()
 
-        col = ASCollection(None, current_app.cfg.as_coll_store_id(), db,
-                           JSON_document)  # BAD
+        col = ASCollection(None, current_app.cfg.as_coll_store_id())
         col.restore_from_json(coll_json, page_docs)
     else:
-        col = ASCollection(col_ld_id, current_app.cfg.as_coll_store_id(), db,
-                           JSON_document)  # BAD
+        col = ASCollection(col_ld_id, current_app.cfg.as_coll_store_id())
 
     page_store_id = '{}{}'.format(current_app.cfg.as_pg_store_pref(),
                                   uuid.uuid4())
     page_ld_id = '{}{}'.format(current_app.cfg.serv_url(),
                                url_for('jk.api_json_id', json_id=page_store_id))
 
-    page = ASCollectionPage(page_ld_id, page_store_id, db,
-                            JSON_document)  # BAD
+    page = ASCollectionPage(page_ld_id, page_store_id)
 
     cur_type = 'http://codh.rois.ac.jp/iiif/curation/1#Curation'
     if cur_type not in root_elem_types:
