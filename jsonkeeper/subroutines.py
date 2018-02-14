@@ -1,77 +1,14 @@
-""" JSONkeeper
-
-    Minimal web app made for API access to store and retrieve JSON.
-"""
-
-import firebase_admin
 import json
 import re
 import uuid
 from collections import OrderedDict
+from flask import abort, current_app, Response, url_for
 from firebase_admin import auth as firebase_auth
-from flask import abort, Flask, jsonify, redirect, request, Response, url_for
-from flask_sqlalchemy import SQLAlchemy
-from pyld import jsonld
-from sqlalchemy.sql import func
 from util.iiif import Curation
 from util.activity_stream import (ASCollection, ASCollectionPage,
                                   ActivityBuilder)
-from util.config import Cfg
-from werkzeug.exceptions import default_exceptions, HTTPException
-from werkzeug.routing import BaseConverter
-
-
-app = Flask(__name__)
-app.cfg = Cfg()
-
-class RegexConverter(BaseConverter):
-    """ Make it possible to distinguish routes by <regex("[exampl]"):>.
-
-        https://stackoverflow.com/a/5872904
-    """
-
-    def __init__(self, url_map, *items):
-        super(RegexConverter, self).__init__(url_map)
-        self.regex = items[0]
-
-app.url_map.converters['regex'] = RegexConverter
-
-if app.cfg.use_frbs():
-    cred = firebase_admin.credentials.Certificate(app.cfg.frbs_conf())
-    firebase_admin.initialize_app(cred)
-app.config['SQLALCHEMY_DATABASE_URI'] = app.cfg.db_uri()
-app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-db = SQLAlchemy(app)
-
-
-class JSON_document(db.Model):
-    id = db.Column(db.String(255), primary_key=True)
-    access_token = db.Column(db.String(255))
-    json_string = db.Column(db.UnicodeText())
-    created_at = db.Column(db.DateTime(timezone=True),
-                           server_default=func.now())
-    updated_at = db.Column(db.DateTime(timezone=True),
-                           onupdate=func.now())
-
-db.create_all()
-jsonld.set_document_loader(jsonld.requests_document_loader(timeout=3))
-
-for code in default_exceptions.keys():
-    """ Make app return exceptions in JSON form. Also add CORS headers.
-
-        Based on http://flask.pocoo.org/snippets/83/ but updated to use
-        register_error_handler method.
-        Note: this doesn't seem to work for 405 Method Not Allowed in an
-              Apache + gnunicorn setup.
-    """
-
-    @app.errorhandler(code)
-    def make_json_error(error):
-        resp = jsonify(message=str(error))
-        resp.status_code = (error.code
-                            if isinstance(error, HTTPException)
-                            else 500)
-        return add_CORS_headers(resp)
+from jsonkeeper.models import db, JSON_document
+from pyld import jsonld
 
 
 def acceptable_content_type(request):
@@ -94,26 +31,28 @@ def update_activity_stream(json_string, json_id, root_elem_types):
         Collection; otherwise we just update it.
     """
 
-    if not app.cfg.serve_as() or \
-       len(set(root_elem_types).intersection(set(app.cfg.as_types()))) == 0:
+    if not current_app.cfg.serve_as() or \
+       len(set(root_elem_types).intersection(set(current_app.cfg.as_types())
+                                             )) == 0:
         return
 
     coll_json = get_actstr_collection()
-    col_ld_id = '{}{}'.format(app.cfg.serv_url(),
-                              url_for('activity_stream_collection'))
+    col_ld_id = '{}{}'.format(current_app.cfg.serv_url(),
+                              url_for('jk.activity_stream_collection'))
     if coll_json:
         page_docs = get_actstr_collection_pages()
 
-        col = ASCollection(None, app.cfg.as_coll_store_id(), db,
+        col = ASCollection(None, current_app.cfg.as_coll_store_id(), db,
                            JSON_document)  # BAD
         col.restore_from_json(coll_json, page_docs)
     else:
-        col = ASCollection(col_ld_id, app.cfg.as_coll_store_id(), db,
+        col = ASCollection(col_ld_id, current_app.cfg.as_coll_store_id(), db,
                            JSON_document)  # BAD
 
-    page_store_id = '{}{}'.format(app.cfg.as_pg_store_pref(), uuid.uuid4())
-    page_ld_id = '{}{}'.format(app.cfg.serv_url(),
-                               url_for('api_json_id', json_id=page_store_id))
+    page_store_id = '{}{}'.format(current_app.cfg.as_pg_store_pref(),
+                                  uuid.uuid4())
+    page_ld_id = '{}{}'.format(current_app.cfg.serv_url(),
+                               url_for('jk.api_json_id', json_id=page_store_id))
 
     page = ASCollectionPage(page_ld_id, page_store_id, db,
                             JSON_document)  # BAD
@@ -129,21 +68,21 @@ def update_activity_stream(json_string, json_id, root_elem_types):
         # ↓ FIXME: @context assumptions (prefixes)
         cur = Curation(None)
         cur.from_json(json_string)
-        typed_cur = {'@type':'cr:Curation','@id':cur.get_id()}
+        typed_cur = {'@type': 'cr:Curation', '@id': cur.get_id()}
         # Create
         create = ActivityBuilder.build_create(typed_cur)
         page.add(create)
         # Reference
         for cid in cur.get_all_canvas_ids():
-            typed_canvas = {'@type':'sc:Canvas','@id':cid}
+            typed_canvas = {'@type': 'sc:Canvas', '@id': cid}
             ref = ActivityBuilder.build_reference(typed_cur, typed_canvas)
             page.add(ref)
         # Offerings
         for dic in cur.get_range_summary():
             ran_id = dic.get('ran')
             man_id = dic.get('man')
-            typed_ran = {'@type':'sc:Range','@id':ran_id}
-            typed_man = {'@type':'sc:Manifest','@id':man_id}
+            typed_ran = {'@type': 'sc:Range', '@id': ran_id}
+            typed_man = {'@type': 'sc:Manifest', '@id': man_id}
             off = ActivityBuilder.build_offer(typed_cur, typed_ran, typed_man)
             page.add(off)
 
@@ -167,11 +106,12 @@ def handle_incoming_json_ld(json_string, json_id):
 
     # rewrite @ids
     id_change = False
-    if app.cfg.id_rewr():
+    if current_app.cfg.id_rewr():
         root_elem_types = expanded[0]['@type']
-        if len(set(root_elem_types).intersection(set(app.cfg.id_types()))) > 0:
-            root_elem['@id'] = '{}{}'.format(app.cfg.serv_url(),
-                                             url_for('api_json_id',
+        if len(set(root_elem_types
+                   ).intersection(set(current_app.cfg.id_types()))) > 0:
+            root_elem['@id'] = '{}{}'.format(current_app.cfg.serv_url(),
+                                             url_for('jk.api_json_id',
                                                      json_id=json_id))
 
             # Special hardcoded custom behaviour for Curations here :F
@@ -221,7 +161,7 @@ def _write_json__request_wrapper(request, given_id, access_token):
     # 3. do response specific things
     resp = Response(json_string)
     if given_id is None:
-        resp.headers['Location'] = url_for('api_json_id', json_id=json_id)
+        resp.headers['Location'] = url_for('jk.api_json_id', json_id=json_id)
     resp.headers['Content-Type'] = request.headers.get('Content-Type')
 
     return resp
@@ -322,7 +262,7 @@ def get_access_token(request):
         - False in case a Firebase ID token could not be verified
     """
 
-    if app.cfg.use_frbs() and 'X-Firebase-ID-Token' in request.headers:
+    if current_app.cfg.use_frbs() and 'X-Firebase-ID-Token' in request.headers:
         id_token = request.headers.get('X-Firebase-ID-Token')
         try:
             decoded_token = firebase_auth.verify_id_token(id_token)
@@ -356,12 +296,12 @@ def get_document_IDs_by_access_token(token):
 
 
 def get_actstr_collection_pages():
-    query_patt = '{}%'.format(app.cfg.as_pg_store_pref())
+    query_patt = '{}%'.format(current_app.cfg.as_pg_store_pref())
     return JSON_document.query.filter(JSON_document.id.like(query_patt)).all()
 
 
 def get_actstr_collection():
-    return get_JSON_string_by_ID(app.cfg.as_coll_store_id())
+    return get_JSON_string_by_ID(current_app.cfg.as_coll_store_id())
 
 
 def handle_post_request(request):
@@ -433,146 +373,3 @@ def handle_delete_request(request, json_id):
             return abort(403, 'X-Access-Token header value not correct.')
     else:
         return abort(404, 'JSON document with ID {} not found'.format(json_id))
-
-
-@app.route('/')
-def index():
-    """ Info page. All requests that don't accept application/json are sent
-        here.
-    """
-
-    num_files = JSON_document.query.count()
-    status_msg = 'Storing {} JSON documents.'.format(num_files)
-
-    coll_json = get_actstr_collection()
-    if coll_json:
-
-        num_col_pages = 0
-        page_docs = get_actstr_collection_pages()
-        if page_docs:
-            num_col_pages = len(page_docs)
-
-        coll_url = '{}{}'.format(app.cfg.serv_url(),
-                                 url_for('activity_stream_collection'))
-        status_msg += (' Serving an Activity Stream Collection with {} Collect'
-                       'ionPages at {}'.format(num_col_pages, coll_url))
-
-    if request.accept_mimetypes.accept_json:
-        resp = jsonify({'message': status_msg})
-        return add_CORS_headers(resp), 200
-    else:
-        resp = Response(status_msg)
-        resp.headers['Content-Type'] = 'text/plain; charset=utf-8'
-        return add_CORS_headers(resp), 200
-
-
-@app.route('/{}'.format(app.cfg.api_path()),
-           methods=['GET', 'POST', 'OPTIONS'])
-def api():
-    """ API endpoint for posting new JSON documents.
-
-        Allow GET access to send human visitors to the info page.
-    """
-
-    if request.method == 'OPTIONS':
-        return CORS_preflight_response(request)
-    elif request.method == 'POST' and \
-            request.accept_mimetypes.accept_json and \
-            acceptable_content_type(request):
-        return handle_post_request(request)
-    else:
-        resp = redirect(url_for('index'))
-        return add_CORS_headers(resp)
-
-
-@app.route('/{}'.format(app.cfg.as_coll_url()), methods=['GET', 'OPTIONS'])
-def activity_stream_collection():
-    """ Special API endpoint for serving an Activity Stream in form of a
-        as:Collection.
-    """
-
-    if request.method == 'OPTIONS':
-        return CORS_preflight_response(request)
-
-    coll_json = get_actstr_collection()
-
-    if coll_json:
-        resp = Response(coll_json)
-        resp.headers['Content-Type'] = 'application/activity+json'
-        return add_CORS_headers(resp), 200
-    else:
-        return abort(404, 'Activity Stream does not exist.')
-
-
-@app.route('/{}/userlist'.format(app.cfg.api_path()),
-           methods=['GET', 'OPTIONS'])
-def api_userlist():
-    """ Return a list of URLs to all documents stored with the same access
-        token as this request.
-    """
-
-    if request.method == 'OPTIONS':
-        return CORS_preflight_response(request)
-
-    token = get_access_token(request)
-    ids = get_document_IDs_by_access_token(token)
-    urls = []
-
-    for aid in ids:
-        urls.append('{}{}'.format(app.cfg.serv_url(),
-                                  url_for('api_json_id', json_id=aid)))
-    resp = jsonify(urls)
-    return add_CORS_headers(resp), 200
-
-
-@app.route('/{}/<json_id>/range<r_num>'.format(app.cfg.api_path(),
-                                               app.cfg.doc_id_patt()
-                                              ),
-           methods=['GET', 'OPTIONS'])
-def api_json_id_range(json_id, r_num):
-    """ Special API endpoint for sc:Ranges in JSON-LD documents.
-    """
-
-    json_string = get_JSON_string_by_ID(json_id)
-    if json_string:
-        cur = Curation(None)
-        cur.from_json(json_string)
-        if 'selections' not in cur.cur:
-            return abort(404, ('JSON document with ID {} does not contain any '
-                               'Ranges.'.format(json_id)))
-
-        range_dict = cur.get_nth_range(int(r_num))
-
-        if range_dict:
-            resp = Response(json.dumps(range_dict))
-            resp.headers['Content-Type'] = 'application/json'
-            return add_CORS_headers(resp), 200
-        else:
-            return abort(404, ('This JSON document does not contain {} ranges.'
-                               '').format(r_num))
-    else:
-        return abort(404, 'JSON document with ID {} not found'.format(json_id))
-
-
-@app.route('/{}/<regex("{}"):json_id>'.format(app.cfg.api_path(),
-                                              app.cfg.doc_id_patt()
-                                             ),
-           methods=['GET', 'PUT', 'DELETE', 'OPTIONS'])
-def api_json_id(json_id):
-    """ API endpoint for retrieving, updating and deleting JSON documents
-    """
-
-    if request.method == 'OPTIONS':
-        return CORS_preflight_response(request)
-    elif request.method == 'GET' and \
-            request.accept_mimetypes.accept_json:
-        return handle_get_request(request, json_id)
-    elif request.method == 'PUT' and \
-            request.accept_mimetypes.accept_json and \
-            acceptable_content_type(request):
-        return handle_put_request(request, json_id)
-    elif request.method == 'DELETE':
-        return handle_delete_request(request, json_id)
-    else:
-        resp = redirect(url_for('index'))
-        return add_CORS_headers(resp)
