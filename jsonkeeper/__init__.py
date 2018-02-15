@@ -4,13 +4,12 @@
     functions for JSON-LD.
 """
 
-
 import firebase_admin
 from flask import Flask, jsonify
 from pyld import jsonld
-from util.config import Cfg
 from werkzeug.exceptions import default_exceptions, HTTPException
 from werkzeug.routing import BaseConverter
+from jsonkeeper.config import Cfg
 from jsonkeeper.subroutines import add_CORS_headers
 
 

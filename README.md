@@ -51,10 +51,10 @@ activity\_stream | collection\_url | `None` | path under which an [Activity Stre
         $ sudo service apache2 reload
         $ source venv/bin/activate
         $ pip install gunicorn
-        $ gunicorn --bind localhost:8000 -e SCRIPT_NAME='/JSONkeeper' "jsonkeeper:create_app()"
+        $ gunicorn --bind localhost:8000 -e SCRIPT_NAME='/JSONkeeper' 'jsonkeeper:create_app()'
 
 #### Alternatives
-* [Deployment Options](http://flask.pocoo.org/docs/0.12/deploying/)
+* [Deployment Options](http://flask.pocoo.org/docs/0.12/deploying/) (be aware that JSONkeeper uses the [Application Factories](http://flask.pocoo.org/docs/0.12/patterns/appfactories/) pattern, some adjustments to the deployment options listed may be necessary)
 
 ## Test
 * if you make changes to the code, basic testing can be done with
@@ -133,10 +133,12 @@ If the [configuration](#config) contains a section
 
 and a [POST](https://github.com/IllDepence/JSONkeeper/blob/master/README.md#create) request is issued with `Content-Type` set to `application/ld+json` *and* the request's content is a valid JSON-LD document whose [expanded](https://json-ld.org/spec/latest/json-ld-api/#expansion-algorithms) `@type` is listed in the configuration, *then* the document's [@id](https://json-ld.org/spec/latest/json-ld/#node-identifiers) is set to the URL where JSONkeeper will serve the document.
 
+Special behaviour is defined for `http://codh.rois.ac.jp/iiif/curation/1#Curation`. `http://iiif.io/api/presentation/2#Range` nodes within the Curation also are assigned a dereferencable `@id`.
+
 ## Activity Stream
 JSONkeeper can be configured to serve an [Activity Stream](https://www.w3.org/TR/activitystreams-core/) in form of a Collection. The only type of Activity that is generated right now for all types of JSON-LD documents is [Create](https://www.w3.org/TR/activitystreams-vocabulary/#dfn-create).
 
-Special behaviour is defined for `http://codh.rois.ac.jp/iiif/curation/1#Curation`. For which Create, Reference and Offer Activities are generated.
+Special behaviour is defined for `http://codh.rois.ac.jp/iiif/curation/1#Curation`. Create, Reference and Offer Activities are generated.
 
 - - -
 
