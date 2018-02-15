@@ -32,7 +32,7 @@ activity\_stream | collection\_url | `None` | path under which an [Activity Stre
 ## Serve
 ### Development
     $ source venv/bin/activate
-    $ FLASK_APP=jsonkeeper.py FLASK_DEBUG=1 python -m flask run
+    $ python3 run.py debug
 
 ### Deploy
 #### Apache2 + gunicorn example
@@ -42,8 +42,8 @@ activity\_stream | collection\_url | `None` | path under which an [Activity Stre
 
 * add proxy rules to apache (e.g. in `/etc/apache2/sites-enabled/000-default.conf` within the `<VirtualHost *:80>` block):
 
-        ProxyPassMatch "^/JSONkeeper/(.*)" "http://127.0.0.1:8000/JSONkeeper/$1"
-        ProxyPassReverse "^/JSONkeeper/(.*)" "http://127.0.0.1:8000/JSONkeeper/$1"
+        ProxyPassMatch "^/JSONkeeper/(.*)" "http://localhost:8000/JSONkeeper/$1"
+        ProxyPassReverse "^/JSONkeeper/(.*)" "http://localhost:8000/JSONkeeper/$1"
 
 * restart apache, get and start gunicorn
 
@@ -51,7 +51,7 @@ activity\_stream | collection\_url | `None` | path under which an [Activity Stre
         $ sudo service apache2 reload
         $ source venv/bin/activate
         $ pip install gunicorn
-        $ gunicorn --bind 127.0.0.1:8000 -e SCRIPT_NAME='/JSONkeeper' jsonkeeper:app
+        $ gunicorn --bind localhost:8000 -e SCRIPT_NAME='/JSONkeeper' "jsonkeeper:create_app()"
 
 #### Alternatives
 * [Deployment Options](http://flask.pocoo.org/docs/0.12/deploying/)
@@ -61,7 +61,7 @@ activity\_stream | collection\_url | `None` | path under which an [Activity Stre
 
         $ flake8 *.py
         $ source venv/bin/activate
-        $ python jsonkeeper_test.py
+        $ python3 test.py
 
 ## Usage examples
 ### Create
