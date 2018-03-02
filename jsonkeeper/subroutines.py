@@ -102,6 +102,7 @@ def handle_incoming_json_ld(json_string, json_id):
                           'text that can not be resolved).')
 
     # rewrite @ids
+    root_elem_types = []
     id_change = False
     if current_app.cfg.id_rewr():
         root_elem_types = expanded[0]['@type']
