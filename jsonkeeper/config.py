@@ -49,7 +49,10 @@ class Cfg():
         return bool(self.as_coll_url())
 
     def as_coll_store_id(self):
-        return 'as_coll_{}'.format(re.sub(r'\W', '', self.as_coll_url()))
+        if self.serve_as():
+            return 'as_coll_{}'.format(re.sub(r'\W', '', self.as_coll_url()))
+        else:
+            return None
 
     def as_types(self):
         return self.cfg['activity_generating_types']
