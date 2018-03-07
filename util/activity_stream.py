@@ -76,6 +76,35 @@ class ASCollection(ASWrapper):
             page.from_json(pd.json_string)
             self.add(page)
 
+    def remove(self, to_rem):
+        """ Remove a CollectionPage.
+
+            Note: implemented BUT NOT TESTED for AS moderation (in case a
+                  CollectionPage gets taken out of the AS).
+            Note #2: may be unnecessary b/c restore_from_json can be used to
+                     only selectively add
+        """
+
+        self.total_items -= 1
+        if self.total_items == 0:
+            self.first = None
+            self.last = None
+        elif self.total_items > 0:
+            if to_rem.get('id') == self.last.get('id'):
+                self.last = to_rem.prev
+                self.last.unset_next()
+            elif to_rem.get('id') == self.first.get('id'):
+                self.first = to_rem.next
+                self.first.unset_prev()
+            else:
+                to_rem.prev.set_next(to_rem.next)
+                to_rem.next.set_prev(to_rem.prev)
+        else:
+            print('WARNING: Collection structure is broken.')
+        to_rem.unset_part_of()
+        to_rem.unset_prev()
+        to_rem.unset_next()
+
     def add(self, to_add):
         """ Add a CollectionPage.
         """
@@ -162,6 +191,21 @@ class ASCollectionPage(ASWrapper):
     def set_part_of(self, col):
         self.part_of = col
         self.dic['partOf'] = self.part_of.get('id')
+        self.store()
+
+    def unset_part_of(self):
+        self.part_of = None
+        self.dic['partOf'] = None
+        self.store()
+
+    def unset_prev(self):
+        self.dic['prev'] = None
+        self.prev = None
+        self.store()
+
+    def unset_next(self):
+        self.next = None
+        self.dic['next'] = None
         self.store()
 
     def set_prev(self, other):

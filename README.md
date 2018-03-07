@@ -59,7 +59,7 @@ activity\_stream | collection\_url | `None` | path under which an [Activity Stre
 ## Test
 * if you make changes to the code, basic testing can be done with
 
-        $ flake8 *.py
+        $ flake8 *.py jsonkeeper/*.py util/*.py
         $ source venv/bin/activate
         $ python3 test.py
 

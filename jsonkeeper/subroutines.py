@@ -50,7 +50,8 @@ def update_activity_stream(json_string, json_id, root_elem_types):
     page_store_id = '{}{}'.format(current_app.cfg.as_pg_store_pref(),
                                   uuid.uuid4())
     page_ld_id = '{}{}'.format(current_app.cfg.serv_url(),
-                               url_for('jk.api_json_id', json_id=page_store_id))
+                               url_for('jk.api_json_id',
+                                       json_id=page_store_id))
 
     page = ASCollectionPage(page_ld_id, page_store_id)
 

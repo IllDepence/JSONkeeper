@@ -6,6 +6,7 @@ import os
 import re
 import sys
 
+
 class Cfg():
 
     def __init__(self, path='config.ini'):
@@ -85,20 +86,18 @@ class Cfg():
         cfg = {}
         cfg['db_uri'] = 'sqlite://'
         cfg['server_url'] = 'http://localhost:5000'
-        cfg['api_path'] = 'api'     # FIXME [1]
+        cfg['api_path'] = 'api'
         cfg['use_firebase'] = False                         # maybe change
         cfg['firebase_service_account_key_file'] = None     # at some point
         cfg['use_id_rewrite'] = True
-        cfg['id_rewrite_types'] = ['http://codh.rois.ac.jp/iiif/curation/1#Curation']
-        cfg['as_collection_url'] = 'as/collection.json'     # FIXME [1]
+        cfg['id_rewrite_types'] = [('http://codh.rois.ac.jp/iiif/curation/1#Cu'
+                                    'ration')]
+        cfg['as_collection_url'] = 'as/collection.json'
         cfg['activity_generating_types'] = cfg['id_rewrite_types']
         cfg['as_page_store_prefix'] = 'as_page_'
         cfg['doc_id_pattern'] = ('(as_page_)?[a-z0-9]{8}-[a-z0-9]{4}-'
                                  '[a-z0-9]{4}-[a-z0-9]{4}-[a-z0-9]{12}')
         self.cfg = cfg
-
-        # [1] Has no effect yet because these are used in jsonkeeper.py for
-        #     @route decorators
 
     def _parse_config(self, cp):
         """ Prase a configparser.ConfigParser instance and return
@@ -123,7 +122,7 @@ class Cfg():
             if cp['firebase'].get('service_account_key_file'):
                 cfg['use_firebase'] = True
                 cfg['firebase_service_account_key_file'
-                             ] = cp['firebase'].get('service_account_key_file')
+                    ] = cp['firebase'].get('service_account_key_file')
 
         # JSON-LD
         if 'json-ld' in cp.sections():
@@ -152,8 +151,8 @@ class Cfg():
                     valid = False
             if not valid:
                 as_fail = ('Serving an Activity Stream requires all types set '
-                          'for Activity generation also to be set for JSON-LD '
-                          '@id rewriting.')
+                           'for Activity generation also to be set for JSON-LD'
+                           ' @id rewriting.')
 
             if not as_fail:
                 cfg['as_collection_url'] = cp['activity_stream'].get('collecti'

@@ -170,8 +170,7 @@ class Curation():
                     else:
                         print(('WARNING: Can\'t parse a Range\'s within value '
                                '(list item).\n>>> {}'.format(json.dumps(itm))))
-            elif type(w) == dict or \
-                 type(w) == OrderedDict:
+            elif type(w) == dict or type(w) == OrderedDict:
                 mby_man = self._extract_manifest_id(w)
                 if mby_man:
                     dic['man'] = mby_man

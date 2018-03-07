@@ -43,7 +43,7 @@ def create_app(mode=False):
         db.init_app(app)
         db.create_all()
 
-        jsonld.set_document_loader(jsonld.requests_document_loader(timeout=3))
+        jsonld.set_document_loader(jsonld.requests_document_loader(timeout=7))
 
         for code in default_exceptions.keys():
             """ Make app return exceptions in JSON form. Also add CORS headers.
