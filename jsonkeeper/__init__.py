@@ -13,13 +13,13 @@ from jsonkeeper.config import Cfg
 from jsonkeeper.subroutines import add_CORS_headers
 
 
-def create_app(mode=False):
+def create_app(**kwargs):
     app = Flask(__name__)
     with app.app_context():
         app.cfg = Cfg()
-        if mode == 'test':
+        if kwargs:
             app.testing = True
-            app.cfg.set_debug_config()
+            app.cfg.set_debug_config(**kwargs)
 
         class RegexConverter(BaseConverter):
             """ Make it possible to distinguish routes by <regex("[exampl]"):>.

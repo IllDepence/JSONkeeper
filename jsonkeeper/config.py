@@ -82,18 +82,26 @@ class Cfg():
                                  '[a-z0-9]{4}-[a-z0-9]{4}-[a-z0-9]{12}')
         return cfg
 
-    def set_debug_config(self):
+    def set_debug_config(self, id_rewrite, as_serve):
         cfg = {}
         cfg['db_uri'] = 'sqlite://'
         cfg['server_url'] = 'http://localhost:5000'
         cfg['api_path'] = 'api'
         cfg['use_firebase'] = False                         # maybe change
         cfg['firebase_service_account_key_file'] = None     # at some point
-        cfg['use_id_rewrite'] = True
-        cfg['id_rewrite_types'] = [('http://codh.rois.ac.jp/iiif/curation/1#Cu'
-                                    'ration')]
-        cfg['as_collection_url'] = 'as/collection.json'
-        cfg['activity_generating_types'] = cfg['id_rewrite_types']
+        if id_rewrite:
+            cfg['use_id_rewrite'] = True
+            cfg['id_rewrite_types'] = [('http://codh.rois.ac.jp/iiif/curation/'
+                                        '1#Curation')]
+        else:
+            cfg['use_id_rewrite'] = False
+            cfg['id_rewrite_types'] = []
+        if id_rewrite and as_serve:
+            cfg['as_collection_url'] = 'as/collection.json'
+            cfg['activity_generating_types'] = cfg['id_rewrite_types']
+        else:
+            cfg['as_collection_url'] = None
+            cfg['activity_generating_types'] = []
         cfg['as_page_store_prefix'] = 'as_page_'
         cfg['doc_id_pattern'] = ('(as_page_)?[a-z0-9]{8}-[a-z0-9]{4}-'
                                  '[a-z0-9]{4}-[a-z0-9]{4}-[a-z0-9]{12}')

@@ -1,17 +1,48 @@
 import json
+import os
 import unittest
 from jsonkeeper import create_app
 from jsonkeeper.models import JSON_document
 
 
-class JsonStoreTestCase(unittest.TestCase):
+class JkTestCase(unittest.TestCase):
+    """ Test JSONkeeper
+
+        If just called as $ python3 test.py, a default config is used where
+        JSON-LD @id rewriting and Activity Stream serving are active. To test
+        more thoroughly the environment variables JK_ID_REWRITE and JK_AS_SERVE
+        can be set to 0 or 1. Example:
+
+            $ JK_ID_REWRITE=1 JK_AS_SERVE=0 python3 test.py
+
+        Would run the test with a config where JSON-LD @ids are rewritten but
+        a Activity Stream is not being served.
+
+        Note: the combination of JK_ID_REWRITE=0 and JK_AS_SERVE=1 makes no
+            sense (the AS needs to point to dereferencable @ids) as should not
+            be used.
+
+        Implementation note: tried to implement running multiple variations of
+            JkTestCase by using subclasses instead of environment variables.
+            Even though JSONkeeper uses the application factory pattern, the AS
+            collection route would be set to None despite the config value
+            being set to a 'as/collection.json'.
+    """
 
     def setUp(self):
         """ Set up sqlite DB in memory and JSON storage in a tmp directory.
         """
 
-        app = create_app('test')
+        self.id_rewrite = True
+        self.as_serve = True
+        if os.environ.get('JK_ID_REWRITE'):
+            self.id_rewrite = bool(int(os.environ.get('JK_ID_REWRITE')))
+        if os.environ.get('JK_AS_SERVE'):
+            self.as_serve = bool(int(os.environ.get('JK_AS_SERVE')))
+        app = create_app(id_rewrite=self.id_rewrite, as_serve=self.as_serve)
         self.app = app
+        # ↓ Temporary "fix" for https://github.com/pallets/flask/issues/2549
+        self.app.config['JSONIFY_PRETTYPRINT_REGULAR'] = False
         self.tc = app.test_client()
 
     def tearDown(self):
@@ -147,48 +178,64 @@ class JsonStoreTestCase(unittest.TestCase):
             json_ids = [j.id for j in json_docs]
             self.assertNotIn(json_id, json_ids)
 
-    def test_AS(self):
-        """ Activity Stream.
+    def _upload_JSON_LD(self):
+        init_id = 'foo'
+        curation_json = '''
+            {
+              "@context":[
+                "http://iiif.io/api/presentation/2/context.json",
+                "http://codh.rois.ac.jp/iiif/curation/1/context.json"
+                ],
+              "@type":"cr:Curation",
+              "selections":[],
+              "@id":"'''
+        curation_json += init_id
+        curation_json += '"}'
+
+        # # JSON
+        resp = self.tc.post('/{}'.format(self.app.cfg.api_path()),
+                            headers={'Accept': 'application/json',
+                                     'Content-Type': 'application/json'},
+                            data=curation_json)
+        self.assertEqual(resp.status, '201 CREATED')
+        json_obj = json.loads(resp.data.decode('utf-8'))
+        self.assertEqual(json_obj['@type'], 'cr:Curation')
+        self.assertEqual(json_obj['@id'], init_id)
+
+        # # JSON-LD
+        resp = self.tc.post('/{}'.format(self.app.cfg.api_path()),
+                            headers={'Accept': 'application/json',
+                                     'Content-Type': 'application/ld+json'
+                                     },
+                            data=curation_json)
+        self.assertEqual(resp.status, '201 CREATED')
+        json_obj = json.loads(resp.data.decode('utf-8'))
+        self.assertEqual(json_obj['@type'], 'cr:Curation')
+        self.assertNotEqual(json_obj['@id'], init_id)
+        # location = resp.headers.get('Location')
+        # self.assertEqual(json_obj['@id'], location)
+        # for some reason location doesn't include a port for the unit test
+        # BUT it works when JSONkeeper is run with python -m flask run
+
+    def test_JSON_LD(self):
+        """ JSON-LD @id rewriting.
         """
 
+        if not self.id_rewrite:
+            raise unittest.SkipTest('Test not applicable for current config.')
+
         with self.app.app_context():
-            init_id = 'foo'
-            curation_json = '''
-                {
-                  "@context":[
-                    "http://iiif.io/api/presentation/2/context.json",
-                    "http://codh.rois.ac.jp/iiif/curation/1/context.json"
-                    ],
-                  "@type":"cr:Curation",
-                  "selections":[],
-                  "@id":"'''
-            curation_json += init_id
-            curation_json += '"}'
+            self._upload_JSON_LD()
 
-            # # JSON
-            resp = self.tc.post('/{}'.format(self.app.cfg.api_path()),
-                                headers={'Accept': 'application/json',
-                                         'Content-Type': 'application/json'},
-                                data=curation_json)
-            self.assertEqual(resp.status, '201 CREATED')
-            json_obj = json.loads(resp.data.decode('utf-8'))
-            self.assertEqual(json_obj['@type'], 'cr:Curation')
-            self.assertEqual(json_obj['@id'], init_id)
+    def test_AS(self):
+        """ Activity Stream hosting (and JSON-LD @id rewriting).
+        """
 
-            # # JSON-LD
-            resp = self.tc.post('/{}'.format(self.app.cfg.api_path()),
-                                headers={'Accept': 'application/json',
-                                         'Content-Type': 'application/ld+json'
-                                         },
-                                data=curation_json)
-            self.assertEqual(resp.status, '201 CREATED')
-            json_obj = json.loads(resp.data.decode('utf-8'))
-            self.assertEqual(json_obj['@type'], 'cr:Curation')
-            self.assertNotEqual(json_obj['@id'], init_id)
-            # location = resp.headers.get('Location')
-            # self.assertEqual(json_obj['@id'], location)
-            # for some reason location doesn't include a port for the unit test
-            # BUT it works when JSONkeeper is run with python -m flask run
+        if not self.as_serve:
+            raise unittest.SkipTest('Test not applicable for current config.')
+
+        with self.app.app_context():
+            self._upload_JSON_LD()
 
             resp = self.tc.get('/{}'.format(self.app.cfg.as_coll_url()))
             self.assertEqual(resp.status, '200 OK')

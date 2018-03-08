@@ -61,7 +61,7 @@ activity\_stream | collection\_url | `None` | path under which an [Activity Stre
 
         $ flake8 *.py jsonkeeper/*.py util/*.py
         $ source venv/bin/activate
-        $ python3 test.py
+        $ ./tests.sh
 
 ## Usage examples
 ### Create
