@@ -1,7 +1,7 @@
 #! /bin/sh
 
 echo -n "\n[INFO] Testing config with JSON-LD @id rewrite off and Activity Str"
-echo "eam\n       serving off. (Expect 2 tests to be skipped.)"
+echo "eam\n       serving off. (Expect 3 tests to be skipped.)"
 JK_ID_REWRITE=0 JK_AS_SERVE=0 $(which python3) ./test.py
 echo -n "\n[INFO] Testing config with JSON-LD @id rewrite on and Activity Stre"
 echo "am\n       serving off. (Expect 1 test to be skipped.)"

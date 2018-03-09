@@ -15,11 +15,11 @@ class JkTestCase(unittest.TestCase):
 
             $ JK_ID_REWRITE=1 JK_AS_SERVE=0 python3 test.py
 
-        Would run the test with a config where JSON-LD @ids are rewritten but
+        would run the test with a config where JSON-LD @ids are rewritten but
         a Activity Stream is not being served.
 
         Note: the combination of JK_ID_REWRITE=0 and JK_AS_SERVE=1 makes no
-            sense (the AS needs to point to dereferencable @ids) as should not
+            sense (the AS needs to point to dereferencable @ids) and should not
             be used.
 
         Implementation note: tried to implement running multiple variations of
@@ -31,6 +31,7 @@ class JkTestCase(unittest.TestCase):
 
     def setUp(self):
         """ Set up sqlite DB in memory and JSON storage in a tmp directory.
+            Read environment variables if set.
         """
 
         self.id_rewrite = True
@@ -52,7 +53,7 @@ class JkTestCase(unittest.TestCase):
         pass
 
     def test_info_page_JSON(self):
-        """ Test info page when Accept header is set to application/json
+        """ Test info page when client accepts application/json.
         """
 
         with self.app.app_context():
@@ -67,7 +68,7 @@ class JkTestCase(unittest.TestCase):
             self.assertNotIn(b'Activity Stream', resp.data)
 
     def test_info_page_PLAIN(self):
-        """ Test info page when Accept header is not set to application/json
+        """ Test info page when client does not accept application/json.
         """
 
         with self.app.app_context():
@@ -181,16 +182,23 @@ class JkTestCase(unittest.TestCase):
     def _upload_JSON_LD(self):
         init_id = 'foo'
         curation_json = '''
-            {
+            {{
               "@context":[
                 "http://iiif.io/api/presentation/2/context.json",
                 "http://codh.rois.ac.jp/iiif/curation/1/context.json"
                 ],
+              "@id":"{}",
               "@type":"cr:Curation",
-              "selections":[],
-              "@id":"'''
-        curation_json += init_id
-        curation_json += '"}'
+              "selections":[
+                  {{
+                    "@id":"{}",
+                    "@type":"sc:Range",
+                    "label":"",
+                    "canvases": [],
+                    "within": []
+                  }}
+                ]
+            }}'''.format(init_id, init_id)
 
         # # JSON
         resp = self.tc.post('/{}'.format(self.app.cfg.api_path()),
@@ -216,6 +224,8 @@ class JkTestCase(unittest.TestCase):
         # self.assertEqual(json_obj['@id'], location)
         # for some reason location doesn't include a port for the unit test
         # BUT it works when JSONkeeper is run with python -m flask run
+        location = resp.headers.get('Location')
+        return location
 
     def test_JSON_LD(self):
         """ JSON-LD @id rewriting.
@@ -293,6 +303,22 @@ class JkTestCase(unittest.TestCase):
             self.assertEqual(len(json.loads(resp.data.decode('utf-8'))), 0)
             resp = self.tc.get('/{}/userlist'.format(self.app.cfg.api_path()))
             self.assertEqual(len(json.loads(resp.data.decode('utf-8'))), 0)
+
+    def test_Curation_Range_access(self):
+        """ Test special behavior for cr:Curations where contained sc:Range
+            objects can be retrieved separately.
+        """
+
+        if not self.id_rewrite:
+            raise unittest.SkipTest('Test not applicable for current config.')
+
+        with self.app.app_context():
+            location = self._upload_JSON_LD()
+            resp = self.tc.get('{}/range1'.format(location),
+                               headers={'Accept': 'application/json'})
+            self.assertEqual(resp.status, '200 OK')
+            json_obj = json.loads(resp.data.decode('utf-8'))
+            self.assertEqual(json_obj['@type'], 'sc:Range')
 
 if __name__ == '__main__':
     unittest.main()
