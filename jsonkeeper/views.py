@@ -39,8 +39,9 @@ def index():
 
         coll_url = '{}{}'.format(current_app.cfg.serv_url(),
                                  url_for('jk.activity_stream_collection'))
-        status_msg += (' Serving an Activity Stream Collection with {} Collect'
-                       'ionPages at {}'.format(num_col_pages, coll_url))
+        status_msg += (' Serving an Activity Stream OrderedCollection with {} '
+                       'OrderedCollectionPages at {}'.format(num_col_pages,
+                                                             coll_url))
 
     if request.accept_mimetypes.accept_json:
         resp = jsonify({'message': status_msg})

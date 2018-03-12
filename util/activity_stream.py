@@ -19,13 +19,13 @@ class ASWrapper():
         return self.dic[key]
 
     def get_dict(self):
-        """ Return the Collection as a Python dict.
+        """ Return the object as a Python dict.
         """
 
         return self.dic
 
     def get_json(self):
-        """ Return the Collection as JSON.
+        """ Return the object as a JSON string.
         """
 
         return json.dumps(self.dic)
@@ -43,18 +43,18 @@ class ASWrapper():
             db.session.commit()
 
 
-class ASCollection(ASWrapper):
+class ASOrderedCollection(ASWrapper):
 
     def __init__(self, ld_id, store_id):
-        """ Create an empty Collection given an ID and a file system path to
-            save to.
+        """ Create an empty Ordered Collection given an ID and a file system
+            path to save to.
         """
 
         super().__init__(store_id)
 
         col = OrderedDict()
         col['@context'] = 'https://www.w3.org/ns/activitystreams'
-        col['type'] = 'Collection'
+        col['type'] = 'OrderedCollection'
         col['id'] = ld_id
         col['summary'] = ('Activities generated based on the creation of many '
                           'Curations')
@@ -72,15 +72,15 @@ class ASCollection(ASWrapper):
 
         self.dic = json.loads(col_json, object_pairs_hook=OrderedDict)
         for pd in page_docs:
-            page = ASCollectionPage(None, pd.id)
+            page = ASOrderedCollectionPage(None, pd.id)
             page.from_json(pd.json_string)
             self.add(page)
 
     def remove(self, to_rem):
-        """ Remove a CollectionPage.
+        """ Remove a OrderedCollectionPage.
 
             Note: implemented BUT NOT TESTED for AS moderation (in case a
-                  CollectionPage gets taken out of the AS).
+                  OrderedCollectionPage gets taken out of the AS).
             Note #2: may be unnecessary b/c restore_from_json can be used to
                      only selectively add
         """
@@ -100,13 +100,13 @@ class ASCollection(ASWrapper):
                 to_rem.prev.set_next(to_rem.next)
                 to_rem.next.set_prev(to_rem.prev)
         else:
-            print('WARNING: Collection structure is broken.')
+            print('WARNING: OrderedCollection structure is broken.')
         to_rem.unset_part_of()
         to_rem.unset_prev()
         to_rem.unset_next()
 
     def add(self, to_add):
-        """ Add a CollectionPage.
+        """ Add a OrderedCollectionPage.
         """
 
         to_add.set_part_of(self)
@@ -137,9 +137,9 @@ class ASCollection(ASWrapper):
                     break
                 cur = cur.prev
                 if not cur:
-                    print('WARNING: Collection structure is broken.')
+                    print('WARNING: OrderedCollection structure is broken.')
         else:
-            print('WARNING: Collection structure is broken.')
+            print('WARNING: OrderedCollection structure is broken.')
 
         self._update_dict()
         self.store()
@@ -148,15 +148,17 @@ class ASCollection(ASWrapper):
         """ Update self.dic dict from member values.
         """
 
-        self.dic['first'] = self.first.get('id')
-        self.dic['last'] = self.last.get('id')
+        self.dic['first'] = {'type': 'OrderedCollectionPage',
+                             'id': self.first.get('id')}
+        self.dic['last'] = {'type': 'OrderedCollectionPage',
+                            'id': self.last.get('id')}
         self.dic['totalItems'] = self.total_items
 
 
-class ASCollectionPage(ASWrapper):
+class ASOrderedCollectionPage(ASWrapper):
 
     def __init__(self, ld_id, store_id):
-        """ Create an empty CollectionPage.
+        """ Create an empty OrderedCollectionPage.
         """
 
         super().__init__(store_id)
@@ -167,14 +169,14 @@ class ASCollectionPage(ASWrapper):
                            'http://iiif.io/api/presentation/2/context.json',
                            ('http://codh.rois.ac.jp/iiif/curation/1/context.js'
                             'on')]
-        cop['type'] = 'CollectionPage'
+        cop['type'] = 'OrderedCollectionPage'
         cop['id'] = ld_id
         cop['summary'] = ('Activities generated based on the creation of one '
                           'Curation')
         cop['partOf'] = None
         # cop['prev']
         # cop['next']
-        cop['items'] = []
+        cop['orderedItems'] = []
         self.dic = cop
         self.part_of = None
         self.prev = None
@@ -184,9 +186,9 @@ class ASCollectionPage(ASWrapper):
         self.dic = json.loads(json_str, object_pairs_hook=OrderedDict)
         self.part_of = self.dic['partOf']
         if self.dic.get('prev'):
-            self.prev = self.dic['prev']
+            self.prev = self.dic['prev']['id']
         if self.dic.get('next'):
-            self.next = self.dic['next']
+            self.next = self.dic['next']['id']
 
     def set_part_of(self, col):
         self.part_of = col
@@ -211,7 +213,8 @@ class ASCollectionPage(ASWrapper):
     def set_prev(self, other):
         self.prev = other
         if self.prev:
-            self.dic['prev'] = self.prev.get('id')
+            self.dic['prev'] = {'type': 'OrderedCollectionPage',
+                                'id': self.prev.get('id')}
         else:
             self.dic.pop('prev', None)
         self.store()
@@ -219,7 +222,8 @@ class ASCollectionPage(ASWrapper):
     def set_next(self, other):
         self.next = other
         if self.next:
-            self.dic['next'] = self.next.get('id')
+            self.dic['next'] = {'type': 'OrderedCollectionPage',
+                                'id': self.next.get('id')}
         else:
             self.dic.pop('next', None)
         self.store()
@@ -229,30 +233,31 @@ class ASCollectionPage(ASWrapper):
         """
 
         latest = datetime.datetime.fromtimestamp(0)
-        for itm in self.dic['items']:
+        for itm in self.dic['orderedItems']:
             itm_end = dateutil.parser.parse(itm['endTime'])
             if itm_end > latest:
                 latest = itm_end
         return latest
 
     def after(self, other):
-        """ Return True if this CollectionPage's Activities ended after other's
-            Activities. Otherwise return False.
+        """ Return True if this OrderedCollectionPage's Activities ended after
+            other's Activities. Otherwise return False.
 
             NOTE: This function assumes that end times of Activities bundled in
-                  CollectionPages never overlap. Formally, given two distinct
-                  CollectionPages P and S, for any two Activities p∈ P and s∈ S
-                  the comparison whether one of the Activities ended later
-                  endₚ>endₛ is consitently True or consitently False.
+                  OrderedCollectionPages never overlap. Formally, given two
+                  distinct OrderedCollectionPages P and S, for any two
+                  Activities p∈ P and s∈ S the comparison whether one of the
+                  Activities ended later endₚ>endₛ is consitently True or
+                  consitently False.
         """
 
         return self.end_time() > other.end_time()
 
     def add(self, activity):
-        """ Add an Activity to the CollectionPage's items.
+        """ Add an Activity to the OrderedCollectionPage's orderedItems.
         """
 
-        self.dic['items'].append(activity)
+        self.dic['orderedItems'].append(activity)
         self.store()
 
 

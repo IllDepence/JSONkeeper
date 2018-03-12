@@ -5,7 +5,7 @@ from collections import OrderedDict
 from flask import abort, current_app, Response, url_for
 from firebase_admin import auth as firebase_auth
 from util.iiif import Curation
-from util.activity_stream import (ASCollection, ASCollectionPage,
+from util.activity_stream import (ASOrderedCollection, ASOrderedCollectionPage,
                                   ActivityBuilder)
 from jsonkeeper.models import db, JSON_document
 from pyld import jsonld
@@ -42,10 +42,11 @@ def update_activity_stream(json_string, json_id, root_elem_types):
     if coll_json:
         page_docs = get_actstr_collection_pages()
 
-        col = ASCollection(None, current_app.cfg.as_coll_store_id())
+        col = ASOrderedCollection(None, current_app.cfg.as_coll_store_id())
         col.restore_from_json(coll_json, page_docs)
     else:
-        col = ASCollection(col_ld_id, current_app.cfg.as_coll_store_id())
+        col = ASOrderedCollection(col_ld_id,
+                                  current_app.cfg.as_coll_store_id())
 
     page_store_id = '{}{}'.format(current_app.cfg.as_pg_store_pref(),
                                   uuid.uuid4())
@@ -53,7 +54,7 @@ def update_activity_stream(json_string, json_id, root_elem_types):
                                url_for('jk.api_json_id',
                                        json_id=page_store_id))
 
-    page = ASCollectionPage(page_ld_id, page_store_id)
+    page = ASOrderedCollectionPage(page_ld_id, page_store_id)
 
     cur_type = 'http://codh.rois.ac.jp/iiif/curation/1#Curation'
     if cur_type not in root_elem_types:
