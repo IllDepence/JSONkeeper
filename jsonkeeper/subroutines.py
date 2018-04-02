@@ -121,7 +121,7 @@ def handle_incoming_json_ld(json_string, json_id):
                 for idx, ran in enumerate(root_elem['selections']):
                     ran['@id'] = '{}/range{}'.format(root_elem['@id'], idx+1)
                     new_ranges.append(ran)
-            root_elem['selections'] = new_ranges
+                root_elem['selections'] = new_ranges
 
             json_string = json.dumps(root_elem)
             id_change = True
