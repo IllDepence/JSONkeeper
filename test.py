@@ -179,8 +179,7 @@ class JkTestCase(unittest.TestCase):
             json_ids = [j.id for j in json_docs]
             self.assertNotIn(json_id, json_ids)
 
-    def _upload_JSON_LD(self):
-        init_id = 'foo'
+    def _get_curation_json(self, init_id):
         curation_json = '''
             {{
               "@context":[
@@ -199,6 +198,11 @@ class JkTestCase(unittest.TestCase):
                   }}
                 ]
             }}'''.format(init_id, init_id)
+        return curation_json
+
+    def _upload_JSON_LD(self):
+        init_id = 'foo'
+        curation_json = self._get_curation_json(init_id)
 
         # # JSON
         resp = self.tc.post('/{}'.format(self.app.cfg.api_path()),
@@ -319,6 +323,49 @@ class JkTestCase(unittest.TestCase):
             self.assertEqual(resp.status, '200 OK')
             json_obj = json.loads(resp.data.decode('utf-8'))
             self.assertEqual(json_obj['@type'], 'sc:Range')
+
+    def test_status_endpoint(self):
+        """ Test status endpoint.
+        """
+
+        with self.app.app_context():
+            resp = self.tc.post('/{}'.format(self.app.cfg.api_path()),
+                                headers={'Accept': 'application/json',
+                                         'Content-Type': 'application/json',
+                                         'X-Access-Token': 'foo',
+                                         'X-Private':'true'},
+                                data='{"baz":"bam"}')
+            location = resp.headers.get('Location')
+            resp = self.tc.get('{}/status'.format(location),
+                               headers={'Accept': 'application/json',
+                                        'Content-Type': 'application/json'})
+            self.assertEqual(resp.status, '403 FORBIDDEN')
+
+            resp = self.tc.get('{}/status'.format(location),
+                               headers={'Accept': 'application/json',
+                                        'Content-Type': 'application/json',
+                                         'X-Access-Token': 'foo'})
+            json_obj = json.loads(resp.data.decode('utf-8'))
+            self.assertEqual(json_obj['access_token'], 'foo')
+            self.assertEqual(json_obj['private'], True)
+
+    def test_private_AS(self):
+        """ Test if X-Private header
+        """
+
+        if not self.as_serve:
+            raise unittest.SkipTest('Test not applicable for current config.')
+
+        with self.app.app_context():
+            resp = self.tc.post('/{}'.format(self.app.cfg.api_path()),
+                                headers={'Accept': 'application/json',
+                                         'Content-Type': 'application/json',
+                                         'X-Private':'false'},
+                                data='{"foo":"bar"}')
+
+            resp = self.tc.get('/{}'.format(self.app.cfg.as_coll_url()))
+            self.assertEqual(resp.status, '404 NOT FOUND')
+
 
 if __name__ == '__main__':
     unittest.main()
