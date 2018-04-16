@@ -13,5 +13,3 @@ class JSON_document(db.Model):
                            server_default=func.now())
     updated_at = db.Column(db.DateTime(timezone=True),
                            onupdate=func.now())
-    updated_at = db.Column(db.DateTime(timezone=True),
-                           onupdate=func.now())

@@ -232,9 +232,12 @@ def patch_metadata(request, json_id):
     except:
         return abort(400, 'No valid JSON provided.')
 
-    if 'private' in json_dict:
+    if 'private' in json_dict and json_dict['private'] in ['true', 'false']:
         json_doc = get_JSON_doc_by_ID(json_id)
-        json_doc.private = bool(json_dict['private'])
+        if json_dict['private'] == 'false':
+            json_doc.private = False
+        elif json_dict['private'] == 'true':
+            json_doc.private = True
         db.session.commit()
         return Response(json.dumps(get_JSON_metadata_by_ID(json_id)))
     else:

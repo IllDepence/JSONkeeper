@@ -140,6 +140,11 @@ JSONkeeper can be configured to serve an [Activity Stream](https://www.w3.org/TR
 
 Special behaviour is defined for `http://codh.rois.ac.jp/iiif/curation/1#Curation`. Create, Reference and Offer Activities are generated.
 
+#### Private JSON documents
+To prevent JSON documents to appear in the Activity Stream, a header `X-Private` with the value "true" can be provided when creating or updating.
+
+The `private` value can furthermore be managed at `/<api_path>/<json_id>/status`. A GET requests will yield metadata associated with the JSON document. A value update is possible through a PATCH request with a payload in the form of `{"private": "<value>"}`, where `<value>` can be "true" or "false".
+
 - - -
 
 ## Logo
