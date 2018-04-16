@@ -60,7 +60,8 @@ def update_activity_stream(json_string, json_id, root_elem_types):
     if cur_type not in root_elem_types:
         # Create
         json_dict = json.loads(json_string)
-        create = ActivityBuilder.build_create(json_dict['@id'])
+        create = ActivityBuilder.build_create({'@id': json_dict['@id'],
+                                               '@type': json_dict['@type']})
         page.add(create)
     else:
         # Special hardcoded custom behaviour for Curations here :F
@@ -129,7 +130,7 @@ def handle_incoming_json_ld(json_string, json_id):
     return json_string, id_change, root_elem_types
 
 
-def _write_json__request_wrapper(request, given_id, access_token):
+def _write_json__request_wrapper(request, given_id, access_token, private):
     """ 1. do request specific things
         2. call _write_json__request_independent
         3. do response specific things
@@ -155,7 +156,7 @@ def _write_json__request_wrapper(request, given_id, access_token):
     is_new_document = not bool(given_id)
     # 2. call _write_json__request_independent
     json_string = _write_json__request_independent(json_string, json_id,
-                                                   access_token,
+                                                   access_token, private,
                                                    is_new_document, is_json_ld)
 
     # 3. do response specific things
@@ -168,7 +169,7 @@ def _write_json__request_wrapper(request, given_id, access_token):
 
 
 def _write_json__request_independent(json_string, json_id, access_token,
-                                     is_new_document, is_json_ld):
+                                     private, is_new_document, is_json_ld):
     """ Get JSON or JSON-LD and save it to DB.`
     """
 
@@ -184,16 +185,17 @@ def _write_json__request_independent(json_string, json_id, access_token,
         # If this is a new JSON document we need to create a database record
         json_doc = JSON_document(id=json_id,
                                  access_token=access_token,
+                                 private=private,
                                  json_string=json_string)
         db.session.add(json_doc)
         db.session.commit()
     else:
         # For existing documents we need to update the database record
-        json_doc = JSON_document.query.filter_by(id=json_id).first()
+        json_doc = get_JSON_doc_by_ID(json_id)
         json_doc.json_string = json_string
         db.session.commit()
 
-    if id_change:
+    if id_change and not private:
         # We got JSON-LD and gave it a resolvable id. Depending on the config
         # we might want to add some Activities to our AS.
         update_activity_stream(json_string, json_id, root_elem_types)
@@ -201,7 +203,7 @@ def _write_json__request_independent(json_string, json_id, access_token,
     return json_string
 
 
-def write_json(request, given_id, access_token):
+def write_json(request, given_id, access_token, private):
     """ Write JSON contents from request to DB. Used for POST requests (new
         document) and PUT requests (update document). Dealing with access
         tokens (given or not in case of POST, correct or not in case of PUT)
@@ -215,7 +217,28 @@ def write_json(request, given_id, access_token):
         document writing it will just call _write_json__request_independent.
     """
 
-    return _write_json__request_wrapper(request, given_id, access_token)
+    return _write_json__request_wrapper(request, given_id, access_token,
+                                        private)
+
+
+def patch_metadata(request, json_id):
+    """ Partially update the metadata associated with a JSON document.
+    """
+
+    json_bytes = request.data
+    try:
+        json_string = json_bytes.decode('utf-8')
+        json_dict = json.loads(json_string)
+    except:
+        return abort(400, 'No valid JSON provided.')
+
+    if 'private' in json_dict:
+        json_doc = get_JSON_doc_by_ID(json_id)
+        json_doc.private = bool(json_dict['private'])
+        db.session.commit()
+        return Response(json.dumps(get_JSON_metadata_by_ID(json_id)))
+    else:
+        return abort(400, 'No appropriate update values provided.')
 
 
 def CORS_preflight_response(request):
@@ -254,6 +277,18 @@ def add_CORS_headers(resp):
     return resp
 
 
+def get_private_setting(request):
+    """ Given a request object, return the resulting `private` setting.
+        - True if set to "true"
+        - False if set to false nor not set at all
+    """
+
+    if 'X-Private' in request.headers and \
+            request.headers.get('X-Private') == 'true':
+        return True
+    return False
+
+
 def get_access_token(request):
     """ Given a request object, return the resulting access token. This can be:
         - a Firebase uid
@@ -277,14 +312,36 @@ def get_access_token(request):
     return access_token
 
 
+def get_JSON_doc_by_ID(json_id):
+    return JSON_document.query.filter_by(id=json_id).first()
+
+
 def get_JSON_string_by_ID(json_id):
     json_string = None
 
-    json_doc = JSON_document.query.filter_by(id=json_id).first()
+    json_doc = get_JSON_doc_by_ID(json_id)
     if json_doc:
         json_string = json_doc.json_string
 
     return json_string
+
+
+def get_JSON_metadata_by_ID(json_id):
+    metadata = None
+
+    json_doc = get_JSON_doc_by_ID(json_id)
+    if json_doc:
+        metadata = OrderedDict()
+        metadata['id'] = json_doc.id
+        metadata['access_token'] = json_doc.access_token
+        metadata['private'] = bool(json_doc.private)
+        metadata['created_at'] = json_doc.created_at.isoformat()
+        if json_doc.updated_at:
+            metadata['updated_at'] = json_doc.updated_at.isoformat()
+        else:
+            metadata['updated_at'] = json_doc.updated_at
+
+    return metadata
 
 
 def get_document_IDs_by_access_token(token):
@@ -309,10 +366,11 @@ def handle_post_request(request):
     """
 
     access_token = get_access_token(request)
+    private = get_private_setting(request)
     if access_token is False:
         return abort(403, 'Firebase ID token could not be verified.')
 
-    resp = write_json(request, None, access_token)
+    resp = write_json(request, None, access_token, private)
 
     return add_CORS_headers(resp), 201
 
@@ -339,12 +397,13 @@ def handle_put_request(request, json_id):
 
     if json_string:
         access_token = get_access_token(request)
+        private = get_private_setting(request)
         if access_token is False:
             return abort(403, 'Firebase ID token could not be verified.')
-        json_doc = JSON_document.query.filter_by(id=json_id).first()
+        json_doc = get_JSON_doc_by_ID(json_id)
         if json_doc.access_token == access_token or \
                 json_doc.access_token == '':
-            resp = write_json(request, json_id, access_token)
+            resp = write_json(request, json_id, access_token, private)
             return add_CORS_headers(resp), 200
         else:
             return abort(403, 'X-Access-Token header value not correct.')
@@ -362,13 +421,38 @@ def handle_delete_request(request, json_id):
         access_token = get_access_token(request)
         if access_token is False:
             return abort(403, 'Firebase ID token could not be verified.')
-        json_doc = JSON_document.query.filter_by(id=json_id).first()
+        json_doc = get_JSON_doc_by_ID(json_id)
         if json_doc.access_token == access_token or \
                 json_doc.access_token == '':
             db.session.delete(json_doc)
             db.session.commit()
             resp = Response('')
             return add_CORS_headers(resp), 200
+        else:
+            return abort(403, 'X-Access-Token header value not correct.')
+    else:
+        return abort(404, 'JSON document with ID {} not found'.format(json_id))
+
+
+def handle_doc_status_request(request, json_id):
+    """ Handle requests with the purpose of retrieving or partually updating
+        metadata about a JSON document.
+    """
+
+    metadata = get_JSON_metadata_by_ID(json_id)
+    if metadata:
+        access_token = get_access_token(request)
+        if access_token is False:
+            return abort(403, 'Firebase ID token could not be verified.')
+        if metadata['access_token'] == access_token or \
+                metadata['access_token'] == '':
+            if request.method == 'GET':
+                resp = Response(json.dumps(metadata))
+                resp.headers['Content-Type'] = 'application/json'
+                return add_CORS_headers(resp), 200
+            if request.method == 'PATCH':
+                resp = patch_metadata(request, json_id)
+                return add_CORS_headers(resp), 200
         else:
             return abort(403, 'X-Access-Token header value not correct.')
     else:

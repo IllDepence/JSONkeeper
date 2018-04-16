@@ -5,13 +5,15 @@ from jsonkeeper.subroutines import (
     add_CORS_headers,
     get_access_token,
     get_JSON_string_by_ID,
+    get_JSON_metadata_by_ID,
     get_document_IDs_by_access_token,
     get_actstr_collection_pages,
     get_actstr_collection,
     handle_post_request,
     handle_get_request,
     handle_put_request,
-    handle_delete_request)
+    handle_delete_request,
+    handle_doc_status_request)
 from flask import (abort, Blueprint, current_app, redirect, request, jsonify,
                    Response, url_for)
 from util.iiif import Curation
@@ -112,8 +114,9 @@ def api_userlist():
     return add_CORS_headers(resp), 200
 
 
-@jk.route('/{}/<json_id>/range<r_num>'.format(current_app.cfg.api_path(),
-                                              current_app.cfg.doc_id_patt()),
+@jk.route('/{}/<regex("{}"):json_id>/range<r_num>'.format(
+                                                current_app.cfg.api_path(),
+                                                current_app.cfg.doc_id_patt()),
           methods=['GET', 'OPTIONS'])
 def api_json_id_range(json_id, r_num):
     """ Special API endpoint for sc:Ranges in JSON-LD documents.
@@ -138,6 +141,23 @@ def api_json_id_range(json_id, r_num):
                                '').format(r_num))
     else:
         return abort(404, 'JSON document with ID {} not found'.format(json_id))
+
+
+@jk.route('/{}/<regex("{}"):json_id>/status'.format(current_app.cfg.api_path(),
+                                              current_app.cfg.doc_id_patt()),
+          methods=['GET', 'PATCH', 'OPTIONS'])
+def api_json_id_status(json_id):
+    """ API endpoint for retrieving and changing JSON documents' metadata.
+    """
+
+    if request.method == 'OPTIONS':
+        return CORS_preflight_response(request)
+    elif request.method in ['GET', 'PATCH'] and \
+            request.accept_mimetypes.accept_json:
+        return handle_doc_status_request(request, json_id)
+    else:
+        resp = redirect(url_for('jk.index'))
+        return add_CORS_headers(resp)
 
 
 @jk.route('/{}/<regex("{}"):json_id>'.format(current_app.cfg.api_path(),
