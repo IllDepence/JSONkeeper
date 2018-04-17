@@ -65,6 +65,7 @@ class ASOrderedCollection(ASWrapper):
         self.total_items = 0
         self.first = None
         self.last = None
+        self.page_map = {}
 
     def restore_from_json(self, col_json, page_docs):
         """ Restore from JSON
@@ -76,13 +77,15 @@ class ASOrderedCollection(ASWrapper):
             page.from_json(pd.json_string)
             self.add(page)
 
+    def get_page_by_id(self, ld_id):
+        """ Get the page from this collection identified by the given JSON-LD
+            ID.
+        """
+
+        return self.page_map.get(ld_id)
+
     def remove(self, to_rem):
         """ Remove a OrderedCollectionPage.
-
-            Note: implemented BUT NOT TESTED for AS moderation (in case a
-                  OrderedCollectionPage gets taken out of the AS).
-            Note #2: may be unnecessary b/c restore_from_json can be used to
-                     only selectively add
         """
 
         self.total_items -= 1
@@ -104,12 +107,15 @@ class ASOrderedCollection(ASWrapper):
         to_rem.unset_part_of()
         to_rem.unset_prev()
         to_rem.unset_next()
+        self._update_dict()
+        self.store()
 
     def add(self, to_add):
         """ Add a OrderedCollectionPage.
         """
 
         to_add.set_part_of(self)
+        self.page_map[to_add.get('id')] = to_add
         self.total_items += 1
         if self.total_items == 1:
             self.first = to_add
@@ -148,10 +154,16 @@ class ASOrderedCollection(ASWrapper):
         """ Update self.dic dict from member values.
         """
 
-        self.dic['first'] = {'type': 'OrderedCollectionPage',
-                             'id': self.first.get('id')}
-        self.dic['last'] = {'type': 'OrderedCollectionPage',
-                            'id': self.last.get('id')}
+        if self.first:
+            self.dic['first'] = {'type': 'OrderedCollectionPage',
+                                 'id': self.first.get('id')}
+        else:
+            self.dic['first'] = None
+        if self.last:
+            self.dic['last'] = {'type': 'OrderedCollectionPage',
+                                'id': self.last.get('id')}
+        else:
+            self.dic['last'] = None
         self.dic['totalItems'] = self.total_items
 
 

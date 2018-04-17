@@ -350,22 +350,44 @@ class JkTestCase(unittest.TestCase):
             self.assertEqual(json_obj['private'], True)
 
     def test_private_AS(self):
-        """ Test if X-Private header
+        """ Test if X-Private header.
         """
 
         if not self.as_serve:
             raise unittest.SkipTest('Test not applicable for current config.')
 
         with self.app.app_context():
+            init_id = 'foo'
+            curation_json = self._get_curation_json(init_id)
             resp = self.tc.post('/{}'.format(self.app.cfg.api_path()),
                                 headers={'Accept': 'application/json',
-                                         'Content-Type': 'application/json',
-                                         'X-Private':'false'},
-                                data='{"foo":"bar"}')
+                                         'Content-Type': 'application/ld+json',
+                                         'X-Private':'true'},
+                                data=curation_json)
 
             resp = self.tc.get('/{}'.format(self.app.cfg.as_coll_url()))
             self.assertEqual(resp.status, '404 NOT FOUND')
 
+            curation_json = self._get_curation_json(init_id)
+            resp = self.tc.post('/{}'.format(self.app.cfg.api_path()),
+                                headers={'Accept': 'application/json',
+                                         'Content-Type': 'application/ld+json',
+                                         'X-Private':'false'},
+                                data=curation_json)
+            location = resp.headers.get('Location')
+
+            resp = self.tc.get('/{}'.format(self.app.cfg.as_coll_url()))
+            self.assertEqual(resp.status, '200 OK')
+            json_obj = json.loads(resp.data.decode('utf-8'))
+            self.assertEqual(json_obj.get('totalItems'), 1)
+
+            resp = self.tc.patch('{}/status'.format(location),
+                                 headers={'Accept': 'application/json',
+                                          'Content-Type': 'application/json'},
+                                 data='{"private": "true"}')
+            resp = self.tc.get('/{}'.format(self.app.cfg.as_coll_url()))
+            json_obj = json.loads(resp.data.decode('utf-8'))
+            self.assertEqual(json_obj.get('totalItems'), 0)
 
 if __name__ == '__main__':
     unittest.main()

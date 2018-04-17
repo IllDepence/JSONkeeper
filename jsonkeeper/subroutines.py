@@ -237,6 +237,9 @@ def patch_metadata(request, json_id):
         if json_dict['private'] == 'false':
             json_doc.private = False
         elif json_dict['private'] == 'true':
+            if json_doc.private == False:
+                # was false and is now true, need to clean up the AS
+                remove_document_from_actstr(json_doc.id)
             json_doc.private = True
         db.session.commit()
         return Response(json.dumps(get_JSON_metadata_by_ID(json_id)))
@@ -460,3 +463,42 @@ def handle_doc_status_request(request, json_id):
             return abort(403, 'X-Access-Token header value not correct.')
     else:
         return abort(404, 'JSON document with ID {} not found'.format(json_id))
+
+
+def remove_document_from_actstr(to_rem_id):
+    """ Given a JSON ID, remove all activities referencing the document with
+        that ID from the Activity Stream.
+
+        (In the current implementation there is exactly one CollectionPage that
+         contains all Activities referencing a given document. Should AS Update
+         Activities or something similar be implemented at one point the
+         algorithm below has to be extended.)
+    """
+
+    coll_json = get_actstr_collection()
+    if coll_json:
+        page_docs = get_actstr_collection_pages()
+
+        col = ASOrderedCollection(None, current_app.cfg.as_coll_store_id())
+        col.restore_from_json(coll_json, page_docs)
+
+        found = None
+        for page in page_docs:
+            json_obj = json.loads(page.json_string)
+            for activity in json_obj.get('orderedItems', []):
+                if activity.get('type') == 'Create':
+                    doc_id = activity.get('object').get('@id').split('/')[-1]
+                elif activity.get('type') in ['Reference', 'Offer']:
+                    doc_id = activity.get('origin').get('@id').split('/')[-1]
+                if doc_id == to_rem_id:
+                    found = json_obj['id']
+                    break
+            if found:
+                break
+        if found:
+            # Note: this assumes that all Activities on one CollectionPage
+            #       reference the same JSON-LD document.
+            page = col.get_page_by_id(found)
+            col.remove(page)
+            return True
+    return False
