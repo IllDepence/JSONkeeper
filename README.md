@@ -22,7 +22,7 @@ A flask web application for storing JSON documents; with some special functions 
 section | key | default | explanation
 ------- | --- | ------- | -----------
 environment | db\_uri | sqlite:///keep.db | a [SQLAlchemy database URI](http://docs.sqlalchemy.org/en/latest/core/engines.html#database-urls)
-&zwnj;      | server\_uri | http://localhost:5000 | server URL up to the TLD or port, without any path<br>(e.g. `http://ikeepjson.com` but not `http://sirtetris.com/jsonkeeper`)
+&zwnj;      | server\_uri | http://localhost:5000 | server URL beginning with the schema and ending with the TLD or port, without any path<br>(e.g. `http://ikeepjson.com` but not `http://sirtetris.com/jsonkeeper`)
 &zwnj;      | custom\_api\_path | api | specifies the endpoint for API access<br>(e.g. `api` →  `http://ikeepjson.com/api` or `http://sirtetris.com/jsonkeeper/api`)
 firebase | service\_account\_key\_file | `None` | can be set for Google Firebase integration ([details below](#access-tokens))
 json-ld | rewrite\_types | `[]` | comma seperated list of [JSON-LD](https://json-ld.org/spec/latest/json-ld/) types for which [@id](https://json-ld.org/spec/latest/json-ld/#node-identifiers) should be set to a dereferencable URL ([details below](#json-ld))
@@ -40,7 +40,7 @@ activity\_stream | collection\_url | `None` | path under which an [Activity Stre
 
         server_url = http://localhost
 
-* add proxy rules to apache (e.g. in `/etc/apache2/sites-enabled/000-default.conf` within the `<VirtualHost *:80>` block):
+* add proxy rules to apache (e.g. in `/etc/apache2/sites-enabled/000-default.conf` within the `<VirtualHost *:80>` block):<br>\*Note: when using a path like `JSONkeeper` below, it has to be the same path on both sides of the proxy rules (i.e. not `/apps/JSONkeeper/` on one side and `/JSONkeeper/` on the other). This is because JSONkeeper is told by gunicorn (see very last bullet point) under which path it is being hosted. This path has to match the right side of the proxy rule for  the proxy pass to work, but also is automatically used by JSONkeeper to create generates to itself, meaning it has to match the left side of the rule.
 
         ProxyPassMatch "^/JSONkeeper/(.*)" "http://localhost:8000/JSONkeeper/$1"
         ProxyPassReverse "^/JSONkeeper/(.*)" "http://localhost:8000/JSONkeeper/$1"
@@ -141,9 +141,9 @@ JSONkeeper can be configured to serve an [Activity Stream](https://www.w3.org/TR
 Special behaviour is defined for `http://codh.rois.ac.jp/iiif/curation/1#Curation`. Create, Reference and Offer Activities are generated.
 
 #### Private JSON documents
-To prevent JSON documents to appear in the Activity Stream, a header `X-Private` with the value "true" can be provided when creating or updating.
+To prevent JSON documents to appear in the Activity Stream, a header `X-Private` with the value `true` can be provided when creating or updating.
 
-The `private` value can furthermore be managed at `/<api_path>/<json_id>/status`. A GET requests will yield metadata associated with the JSON document. A value update is possible through a PATCH request with a payload in the form of `{"private": "<value>"}`, where `<value>` can be "true" or "false".
+The `private` setting can furthermore be managed at `/<api_path>/<json_id>/status`. A GET requests will yield metadata associated with the JSON document. A value update is possible through a PATCH request with a payload in the form of `{"private": "<value>"}`, where `<value>` can be "true" or "false".
 
 - - -
 
