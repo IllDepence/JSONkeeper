@@ -40,7 +40,7 @@ activity\_stream | collection\_url | `None` | path under which an [Activity Stre
 
         server_url = http://localhost
 
-* add proxy rules to apache (e.g. in `/etc/apache2/sites-enabled/000-default.conf` within the `<VirtualHost *:80>` block):<br>\*Note: when using a path like `JSONkeeper` below, it has to be the same path on both sides of the proxy rules (i.e. not `/apps/JSONkeeper/` on one side and `/JSONkeeper/` on the other). This is because JSONkeeper is told by gunicorn (see very last bullet point) under which path it is being hosted. This path has to match the right side of the proxy rule for  the proxy pass to work, but also is automatically used by JSONkeeper to create generates to itself, meaning it has to match the left side of the rule.
+* add proxy rules to apache (e.g. in `/etc/apache2/sites-enabled/000-default.conf` within the `<VirtualHost *:80>` block):<br>\*Note: when using a path like `JSONkeeper` below, it has to be the same path on both sides of the proxy rules (i.e. not `/apps/JSONkeeper/` on one side and `/JSONkeeper/` on the other). This is because JSONkeeper is told by gunicorn (see last bullet point) under which path it is being hosted. This path has to match the right side of the proxy rule for the proxy pass to work, but also is automatically used by JSONkeeper to create links to itself, meaning it also has to match the left side of the rule.
 
         ProxyPassMatch "^/JSONkeeper/(.*)" "http://localhost:8000/JSONkeeper/$1"
         ProxyPassReverse "^/JSONkeeper/(.*)" "http://localhost:8000/JSONkeeper/$1"
