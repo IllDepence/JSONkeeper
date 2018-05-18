@@ -34,13 +34,13 @@ class ASWrapper():
         json_doc = JSON_document.query.filter_by(id=self.store_id).first()
         if json_doc:
             json_doc.json_string = self.get_json()
-            db.session.commit()
+            db.session.flush()
         else:
             json_doc = JSON_document(id=self.store_id,
                                      access_token=str(uuid.uuid4()),
                                      json_string=self.get_json())
             db.session.add(json_doc)
-            db.session.commit()
+            db.session.flush()
 
 
 class ASOrderedCollection(ASWrapper):

@@ -87,6 +87,7 @@ def update_activity_stream(json_string, json_id, root_elem_types):
             page.add(off)
 
     col.add(page)
+    db.session.commit()
 
 
 def handle_incoming_json_ld(json_string, json_id):
@@ -500,5 +501,6 @@ def remove_document_from_actstr(to_rem_id):
             #       reference the same JSON-LD document.
             page = col.get_page_by_id(found)
             col.remove(page)
+            db.session.commit()
             return True
     return False
