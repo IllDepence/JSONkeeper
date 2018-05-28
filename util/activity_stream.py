@@ -314,3 +314,17 @@ class ActivityBuilder():
         act['type'] = 'Create'
         act['object'] = obj
         return act
+
+    @staticmethod
+    def build_update(obj, **kwargs):
+        act = ActivityBuilder._build_basic(**kwargs)
+        act['type'] = 'Update'
+        act['object'] = obj
+        return act
+
+    @staticmethod
+    def build_delete(obj, **kwargs):
+        act = ActivityBuilder._build_basic(**kwargs)
+        act['type'] = 'Delete'
+        act['object'] = obj
+        return act

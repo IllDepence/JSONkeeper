@@ -43,16 +43,23 @@ def acceptable_content_type(request):
     return False
 
 
-def update_activity_stream(json_string, json_id, root_elem_types):
-    """ If configured, generate Activities from the given JSON-LD document. If
-        we generate Activities for the first time, we also create the
-        Collection; otherwise we just update it.
+def get_new_as_ordered_collection_page():
+    """ Return a Activity Stream OrderedCollectionPage.
     """
 
-    if not current_app.cfg.serve_as() or \
-       len(set(root_elem_types).intersection(set(current_app.cfg.as_types())
-                                             )) == 0:
-        return
+    page_store_id = '{}{}'.format(current_app.cfg.as_pg_store_pref(),
+                                  uuid.uuid4())
+    page_ld_id = '{}{}'.format(current_app.cfg.serv_url(),
+                               url_for('jk.api_json_id',
+                                       json_id=page_store_id))
+    page = ASOrderedCollectionPage(page_ld_id, page_store_id)
+    return page
+
+
+def get_as_ordered_collection():
+    """ Return the Activity Stream OrderedCollection. If it doesn't exist yet,
+        create it.
+    """
 
     coll_json = get_actstr_collection()
     col_ld_id = '{}{}'.format(current_app.cfg.serv_url(),
@@ -65,14 +72,21 @@ def update_activity_stream(json_string, json_id, root_elem_types):
     else:
         col = ASOrderedCollection(col_ld_id,
                                   current_app.cfg.as_coll_store_id())
+    return col
 
-    page_store_id = '{}{}'.format(current_app.cfg.as_pg_store_pref(),
-                                  uuid.uuid4())
-    page_ld_id = '{}{}'.format(current_app.cfg.serv_url(),
-                               url_for('jk.api_json_id',
-                                       json_id=page_store_id))
 
-    page = ASOrderedCollectionPage(page_ld_id, page_store_id)
+def update_activity_stream_create(json_string, json_id, root_elem_types):
+    """ If configured, generate Activities for the creation of the given
+        JSON-LD document.
+    """
+
+    if not current_app.cfg.serve_as() or \
+       len(set(root_elem_types).intersection(set(current_app.cfg.as_types())
+                                             )) == 0:
+        return
+
+    col = get_as_ordered_collection()
+    page = get_new_as_ordered_collection_page()
 
     cur_type = 'http://codh.rois.ac.jp/iiif/curation/1#Curation'
     if cur_type not in root_elem_types:
@@ -109,6 +123,50 @@ def update_activity_stream(json_string, json_id, root_elem_types):
             typed_man = {'@type': 'sc:Manifest', '@id': man_id}
             off = ActivityBuilder.build_offer(typed_cur, typed_ran, typed_man)
             page.add(off)
+
+    col.add(page)
+    db.session.commit()
+
+
+def update_activity_stream_update(json_string, json_id, root_elem_types):
+    """ If configured, generate Activities for the update of the given JSON-LD
+        document.
+    """
+
+    if not current_app.cfg.serve_as() or \
+       len(set(root_elem_types).intersection(set(current_app.cfg.as_types())
+                                             )) == 0:
+        return
+
+    col = get_as_ordered_collection()
+    page = get_new_as_ordered_collection_page()
+
+    # Update
+    json_dict = json.loads(json_string)
+    update = ActivityBuilder.build_update({'@id': json_dict['@id'],
+                                           '@type': json_dict['@type']})
+    page.add(update)
+
+    col.add(page)
+    db.session.commit()
+
+
+def update_activity_stream_delete(json_string, json_id):
+    """ If configured, generate Activities for the update of the given JSON-LD
+        document.
+    """
+
+    if not current_app.cfg.serve_as():
+        return
+
+    col = get_as_ordered_collection()
+    page = get_new_as_ordered_collection_page()
+
+    # Delete
+    json_dict = json.loads(json_string)
+    update = ActivityBuilder.build_delete({'@id': json_dict['@id'],
+                                           '@type': json_dict['@type']})
+    page.add(update)
 
     col.add(page)
     db.session.commit()
@@ -220,10 +278,14 @@ def _write_json__request_independent(json_string, json_id, access_token,
         json_doc.json_string = json_string
         db.session.commit()
 
-    if id_change and not private:
+    if is_json_ld and is_new_document and id_change and not private:
         # We got JSON-LD and gave it a resolvable id. Depending on the config
         # we might want to add some Activities to our AS.
-        update_activity_stream(json_string, json_id, root_elem_types)
+        update_activity_stream_create(json_string, json_id, root_elem_types)
+    elif is_json_ld and not is_new_document and not private:
+        # We got JSON-LD with a PUT request (not a new document), so we might
+        # want to add an Update activity to our AS.
+        update_activity_stream_update(json_string, json_id, root_elem_types)
 
     return json_string
 
@@ -455,8 +517,14 @@ def handle_delete_request(request, json_id):
         json_doc = get_JSON_doc_by_ID(json_id)
         if json_doc.access_token == access_token or \
                 json_doc.access_token == '':
+            # DB
             db.session.delete(json_doc)
             db.session.commit()
+            # Activity Stream
+            if current_app.cfg.serve_as() and \
+                   is_in_actstr(json.loads(json_string).get('@id')):
+                update_activity_stream_delete(json_string, json_id)
+            # Response
             resp = Response('')
             return add_CORS_headers(resp), 200
         else:
@@ -490,6 +558,29 @@ def handle_doc_status_request(request, json_id):
         return abort(404, 'JSON document with ID {} not found'.format(json_id))
 
 
+def is_in_actstr(doc_id):
+    """ Return true if a document with doc)id is in the Activity Stream.
+    """
+
+    coll_json = get_actstr_collection()
+    if coll_json:
+        page_docs = get_actstr_collection_pages()
+
+        col = ASOrderedCollection(None, current_app.cfg.as_coll_store_id())
+        col.restore_from_json(coll_json, page_docs)
+
+        for page in page_docs:
+            json_obj = json.loads(page.json_string)
+            for activity in json_obj.get('orderedItems', []):
+                if activity.get('type') == 'Create':
+                    doc_id = activity.get('object').get('@id').split('/')[-1]
+                elif activity.get('type') in ['Reference', 'Offer']:
+                    doc_id = activity.get('origin').get('@id').split('/')[-1]
+                if doc_id == doc_id:
+                    return True
+    return False
+
+
 def remove_document_from_actstr(to_rem_id):
     """ Given a JSON ID, remove all activities referencing the document with
         that ID from the Activity Stream.
@@ -499,6 +590,9 @@ def remove_document_from_actstr(to_rem_id):
          Activities or something similar be implemented at one point the
          algorithm below has to be extended.)
     """
+
+    # FIXME: needs to be updated because Update and Delete Activities have been
+    #        implemented
 
     coll_json = get_actstr_collection()
     if coll_json:
