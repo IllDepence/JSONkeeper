@@ -1,5 +1,6 @@
 import json
 from jsonkeeper.subroutines import (
+    acceptable_accept_mime_type,
     acceptable_content_type,
     CORS_preflight_response,
     add_CORS_headers,
@@ -65,7 +66,7 @@ def api():
     if request.method == 'OPTIONS':
         return CORS_preflight_response(request)
     elif request.method == 'POST' and \
-            request.accept_mimetypes.accept_json and \
+            acceptable_accept_mime_type(request) and \
             acceptable_content_type(request):
         return handle_post_request(request)
     else:
@@ -170,10 +171,10 @@ def api_json_id(json_id):
     if request.method == 'OPTIONS':
         return CORS_preflight_response(request)
     elif request.method == 'GET' and \
-            request.accept_mimetypes.accept_json:
+            acceptable_accept_mime_type(request):
         return handle_get_request(request, json_id)
     elif request.method == 'PUT' and \
-            request.accept_mimetypes.accept_json and \
+            acceptable_accept_mime_type(request) and \
             acceptable_content_type(request):
         return handle_put_request(request, json_id)
     elif request.method == 'DELETE':

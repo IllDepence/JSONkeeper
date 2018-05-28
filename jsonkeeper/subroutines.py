@@ -11,6 +11,24 @@ from jsonkeeper.models import db, JSON_document
 from pyld import jsonld
 
 
+def acceptable_accept_mime_type(request):
+    """ Given a request, assess whether or not a mime type that is accepted by
+        the client can be returned.
+
+        For most requests, Werkzeug's request.accept_mimetypes.accept_json is
+        sufficient. But in case of POST and PUT requests we also need to allow
+        clients that only accept 'application/ld+json' when the request's
+        content is 'application/ld+json'.
+    """
+
+    if request.method in ['POST', 'PUT'] and \
+            request.headers.get('Content-Type') == 'application/ld+json':
+        return ('application/ld+json' in request.accept_mimetypes or
+                'application/json' in request.accept_mimetypes)
+    else:
+        return request.accept_mimetypes.accept_json
+
+
 def acceptable_content_type(request):
     """ Given a request, assess whether or not the content type is acceptable.
 

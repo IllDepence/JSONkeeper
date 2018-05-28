@@ -231,6 +231,28 @@ class JkTestCase(unittest.TestCase):
         location = resp.headers.get('Location')
         return location
 
+    def test_restrictive_accpet_header(self):
+        """ Test uploading a JSON-LD document with the 'Accept' header set to
+            only 'application/ld+json'.
+        """
+
+        with self.app.app_context():
+            init_id = 'foo'
+            curation_json = self._get_curation_json(init_id)
+            resp = self.tc.post('/{}'.format(self.app.cfg.api_path()),
+                                headers={'Accept': 'application/ld+json',
+                                         'Content-Type': 'application/ld+json'
+                                         },
+                                data=curation_json)
+            self.assertEqual(resp.status, '201 CREATED')
+
+            resp = self.tc.post('/{}'.format(self.app.cfg.api_path()),
+                                headers={'Accept': 'application/foo+json',
+                                         'Content-Type': 'application/ld+json'
+                                         },
+                                data=curation_json)
+            self.assertNotEqual(resp.status, '201 CREATED')
+
     def test_JSON_LD(self):
         """ JSON-LD @id rewriting.
         """
