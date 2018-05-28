@@ -180,6 +180,10 @@ class JkTestCase(unittest.TestCase):
             self.assertNotIn(json_id, json_ids)
 
     def _get_curation_json(self, init_id):
+        can_id = ('http://iiif.bodleian.ox.ac.uk/iiif/canvas/03818fac-9ba6-438'
+                  '2-b339-e27a0a075f31.json#xywh=986,4209,538,880')
+        man_id = ('http://iiif.bodleian.ox.ac.uk/iiif/manifest/60834383-7146-4'
+                  '1ab-bfe1-48ee97bc04be.json')
         curation_json = '''
             {{
               "@context":[
@@ -193,11 +197,22 @@ class JkTestCase(unittest.TestCase):
                     "@id":"{}",
                     "@type":"sc:Range",
                     "label":"",
-                    "canvases": [],
-                    "within": []
+                    "canvases": [
+                                    {{
+                                        "@id":"{}",
+                                        "label":"Marine exploration"
+                                    }}
+                                ],
+                    "within": [
+                                {{
+                                "@id": "{}",
+                                "@type": "sc:Manifest",
+                                "label": "MS. Bodl. 264"
+                                }}
+                              ]
                   }}
                 ]
-            }}'''.format(init_id, init_id)
+            }}'''.format(init_id, init_id, can_id, man_id)
         return curation_json
 
     def _upload_JSON_LD(self):

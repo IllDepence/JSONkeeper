@@ -91,12 +91,18 @@ def update_activity_stream(json_string, json_id, root_elem_types):
         create = ActivityBuilder.build_create(typed_cur)
         page.add(create)
         # Reference
-        for cid in cur.get_all_canvas_ids():
-            typed_canvas = {'@type': 'sc:Canvas', '@id': cid}
+        ran_lst, ran_dic = cur.get_range_summary()
+        for mid, cid in cur.get_all_canvases(ran_dic):
+            typed_canvas = {'@type': 'sc:Canvas',
+                            '@id': cid,
+                            'within': {'@type': 'sc:Manifest',
+                                       '@id': mid
+                                      }
+                           }
             ref = ActivityBuilder.build_reference(typed_cur, typed_canvas)
             page.add(ref)
         # Offerings
-        for dic in cur.get_range_summary():
+        for dic in ran_lst:
             ran_id = dic.get('ran')
             man_id = dic.get('man')
             typed_ran = {'@type': 'sc:Range', '@id': ran_id}
