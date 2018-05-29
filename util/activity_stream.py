@@ -285,7 +285,7 @@ class ActivityBuilder():
         for key, val in kwargs.items():
             act[key] = val
         if 'endTime' not in kwargs.keys():
-            act['endTime'] = datetime.datetime.now().isoformat()
+            act['endTime'] = datetime.datetime.utcnow().isoformat()
         return act
 
     @staticmethod
