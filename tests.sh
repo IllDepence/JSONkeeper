@@ -1,7 +1,7 @@
 #! /bin/sh
 
-if ping -q -c 1 -W 1 google.com 2>/dev/null; then
-    echo -n ""
+if ping -q -c 1 -W 1 google.com >/dev/null; then
+    resp="y"
 else
     echo -n "\n[WARN] You don't seem to have internet connectivity. \n       T"
     echo -n "esting JSONkeeper requires resolving JSON-LD contexts.\n\n       "

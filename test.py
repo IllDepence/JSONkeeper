@@ -1,6 +1,7 @@
 import json
 import os
 import unittest
+import uuid
 from jsonkeeper import create_app
 from jsonkeeper.models import JSON_document
 
@@ -216,7 +217,7 @@ class JkTestCase(unittest.TestCase):
         return curation_json
 
     def _upload_JSON_LD(self):
-        init_id = 'foo'
+        init_id = str(uuid.uuid4())
         curation_json = self._get_curation_json(init_id)
 
         # # JSON
@@ -242,7 +243,7 @@ class JkTestCase(unittest.TestCase):
         # location = resp.headers.get('Location')
         # self.assertEqual(json_obj['@id'], location)
         # for some reason location doesn't include a port for the unit test
-        # BUT it works when JSONkeeper is run with python -m flask run
+        # BUT it works when JSONkeeper is normally run
         location = resp.headers.get('Location')
         return location
 
@@ -278,6 +279,19 @@ class JkTestCase(unittest.TestCase):
         with self.app.app_context():
             self._upload_JSON_LD()
 
+    def _get_activities_of_last_as_page(self):
+        """ Access the AS and return the orderedItems of the last (i.e. most
+            recently added) page.
+        """
+
+        resp = self.tc.get('/{}'.format(self.app.cfg.as_coll_url()))
+        coll = json.loads(resp.data.decode('utf-8'))
+        last_page_url = coll['last']['id']
+        resp = self.tc.get('{}'.format(last_page_url),
+                                headers={'Accept': 'application/json'})
+        last_page = json.loads(resp.data.decode('utf-8'))
+        return last_page['orderedItems']
+
     def test_AS(self):
         """ Activity Stream hosting (and JSON-LD @id rewriting).
         """
@@ -286,10 +300,24 @@ class JkTestCase(unittest.TestCase):
             raise unittest.SkipTest('Test not applicable for current config.')
 
         with self.app.app_context():
-            self._upload_JSON_LD()
+            location = self._upload_JSON_LD()
 
             resp = self.tc.get('/{}'.format(self.app.cfg.as_coll_url()))
             self.assertEqual(resp.status, '200 OK')
+
+            curation_json = self._get_curation_json('foo')
+            curation_json_changed = curation_json.replace('exploration',
+                                                          'adventure')
+            resp = self.tc.put('{}'.format(location),
+                                headers={'Accept': 'application/json',
+                                         'Content-Type': 'application/ld+json'
+                                        },
+                                data=curation_json_changed)
+            most_recent_actions = self._get_activities_of_last_as_page()
+            self.assertEqual(most_recent_actions[0]['type'], 'Update')
+            resp = self.tc.delete(location)
+            most_recent_actions = self._get_activities_of_last_as_page()
+            self.assertEqual(most_recent_actions[0]['type'], 'Delete')
 
     def test_protected_JSON(self):
         with self.app.app_context():

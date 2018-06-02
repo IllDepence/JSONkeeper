@@ -524,7 +524,7 @@ def handle_delete_request(request, json_id):
             sth = json.loads(json_string)
             if current_app.cfg.serve_as() and \
                    type(sth) == dict and \
-                   is_in_actstr(json_sth.get('@id')):
+                   is_in_actstr(sth.get('@id')):
                 update_activity_stream_delete(json_string, json_id)
             # Response
             resp = Response('')
