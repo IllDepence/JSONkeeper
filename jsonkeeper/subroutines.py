@@ -521,8 +521,10 @@ def handle_delete_request(request, json_id):
             db.session.delete(json_doc)
             db.session.commit()
             # Activity Stream
+            sth = json.loads(json_string)
             if current_app.cfg.serve_as() and \
-                   is_in_actstr(json.loads(json_string).get('@id')):
+                   type(sth) == dict and \
+                   is_in_actstr(json_sth.get('@id')):
                 update_activity_stream_delete(json_string, json_id)
             # Response
             resp = Response('')
