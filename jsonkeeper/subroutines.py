@@ -325,7 +325,15 @@ def patch_metadata(request, json_id):
             if json_doc.private == True:
                 # retrospectively set to public, need to create a Create
                 # Activity to make the document visible to crawlers
-                pass
+                update_activity_stream_create(json_doc.json_string,
+                                              json_doc.id,
+                                              current_app.cfg.as_types())
+                # NOTE: the thrid argument in above function call is a bit of a
+                #       hack. nice the document was already accepted into
+                #       JSONkeeper, instead of expanding the JSON-LD again and
+                #       checking it in update_activity_stream_create, we just
+                #       pass the list of JSON-LD types that the function checks
+                #       against
             json_doc.private = False
         elif json_dict['private'] == 'true':
             if json_doc.private == False:
