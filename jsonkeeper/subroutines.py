@@ -322,11 +322,17 @@ def patch_metadata(request, json_id):
     if 'private' in json_dict and json_dict['private'] in ['true', 'false']:
         json_doc = get_JSON_doc_by_ID(json_id)
         if json_dict['private'] == 'false':
+            if json_doc.private == True:
+                # retrospectively set to public, need to create a Create
+                # Activity to make the document visible to crawlers
+                pass
             json_doc.private = False
         elif json_dict['private'] == 'true':
             if json_doc.private == False:
-                # was false and is now true, need to clean up the AS
-                remove_document_from_actstr(json_doc.id)
+                # retrospectively set to private, need to create a Delete
+                # Activity and hope that crawlers believe us
+                update_activity_stream_delete(json_doc.json_string,
+                                              json_doc.id)
             json_doc.private = True
         db.session.commit()
         return Response(json.dumps(get_JSON_metadata_by_ID(json_id)))
@@ -587,14 +593,12 @@ def remove_document_from_actstr(to_rem_id):
     """ Given a JSON ID, remove all activities referencing the document with
         that ID from the Activity Stream.
 
-        (In the current implementation there is exactly one CollectionPage that
-         contains all Activities referencing a given document. Should AS Update
-         Activities or something similar be implemented at one point the
-         algorithm below has to be extended.)
+        When this was implemented there was exactly one CollectionPage that
+        contains all Activities referencing a given document. As a result
+        only the first AS page with a matching activity is deleted.
     """
 
-    # FIXME: needs to be updated because Update and Delete Activities have been
-    #        implemented
+    return # currently not used because Delete Activities were introduced
 
     coll_json = get_actstr_collection()
     if coll_json:
