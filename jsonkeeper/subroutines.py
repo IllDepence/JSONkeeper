@@ -232,11 +232,21 @@ def _write_json__request_wrapper(request, given_id, access_token, private):
     else:
         json_id = given_id
 
-    is_json_ld = False
-    if request.headers.get('Content-Type') == 'application/ld+json':
-        is_json_ld = True
-
     is_new_document = not bool(given_id)
+
+    if is_new_document:
+        # in case of a new docuemnt we listen to the user concerning the
+        # content type
+        is_json_ld = False
+        if request.headers.get('Content-Type') == 'application/ld+json':
+            is_json_ld = True
+    else:
+        # is case of a stored document we ignore the user and go with what they
+        # told us when they posted it (no baksies when it comes to plain JSON
+        # or JSON-LD)
+        json_doc = get_JSON_doc_by_ID(json_id)
+        is_json_ld = json_doc.is_json_ld
+
     # 2. call _write_json__request_independent
     json_string = _write_json__request_independent(json_string, json_id,
                                                    access_token, private,
@@ -259,7 +269,7 @@ def _write_json__request_independent(json_string, json_id, access_token,
     id_change = False
     # If we get JSON-LD, examine it and remember if any documents with
     # resolvable @id (for which we might want to generate new Activities in our
-    # Activity Stream) will be saved. After saving update the AS.
+    # Activity Stream) will be saved. After saving, update the AS.
     if is_json_ld:
         json_string, id_change, root_elem_types = \
                                   handle_incoming_json_ld(json_string, json_id)
@@ -269,6 +279,7 @@ def _write_json__request_independent(json_string, json_id, access_token,
         json_doc = JSON_document(id=json_id,
                                  access_token=access_token,
                                  private=private,
+                                 is_json_ld=is_json_ld,
                                  json_string=json_string)
         db.session.add(json_doc)
         db.session.commit()
@@ -300,8 +311,7 @@ def write_json(request, given_id, access_token, private):
         expected to already exist.
 
         This function calls _write_json__request_wrapper which in turn calls
-        _write_json__request_independent. If JSONkeeper performs internal JSON
-        document writing it will just call _write_json__request_independent.
+        _write_json__request_independent.
     """
 
     return _write_json__request_wrapper(request, given_id, access_token,

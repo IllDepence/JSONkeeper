@@ -8,6 +8,7 @@ class JSON_document(db.Model):
     id = db.Column(db.String(255), primary_key=True)
     access_token = db.Column(db.String(255))
     private = db.Column(db.Boolean, default=False)
+    is_json_ld = db.Column(db.Boolean, default=False)
     json_string = db.Column(db.UnicodeText())
     created_at = db.Column(db.DateTime(timezone=True),
                            server_default=func.now())
