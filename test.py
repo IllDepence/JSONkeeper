@@ -444,6 +444,7 @@ class JkTestCase(unittest.TestCase):
             resp = self.tc.get('/{}'.format(self.app.cfg.as_coll_url()))
             self.assertEqual(resp.status, '200 OK')
             json_obj = json.loads(resp.data.decode('utf-8'))
+            # a Create Action should have been added
             self.assertEqual(json_obj.get('totalItems'), 1)
 
             resp = self.tc.patch('{}/status'.format(location),
@@ -452,7 +453,8 @@ class JkTestCase(unittest.TestCase):
                                  data='{"private": "true"}')
             resp = self.tc.get('/{}'.format(self.app.cfg.as_coll_url()))
             json_obj = json.loads(resp.data.decode('utf-8'))
-            self.assertEqual(json_obj.get('totalItems'), 0)
+            # a Delete Action should have been added
+            self.assertEqual(json_obj.get('totalItems'), 2)
 
 if __name__ == '__main__':
     unittest.main()
