@@ -255,7 +255,9 @@ def _write_json__request_wrapper(request, given_id, access_token, private):
     # 3. do response specific things
     resp = Response(json_string)
     if given_id is None:
-        resp.headers['Location'] = url_for('jk.api_json_id', json_id=json_id)
+        location = '{}{}'.format(current_app.cfg.serv_url(),
+                                 url_for('jk.api_json_id', json_id=json_id))
+        resp.headers['Location'] = location
     resp.headers['Content-Type'] = request.headers.get('Content-Type')
 
     return resp
