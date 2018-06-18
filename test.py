@@ -348,12 +348,12 @@ class JkTestCase(unittest.TestCase):
                                   headers={'X-Access-Token': 'secret'})
             self.assertEqual(resp.status, '200 OK')
 
-    def test_userlist(self):
-        """ Test the /<api_path>/userlist endpoint.
+    def test_userdocs(self):
+        """ Test the /<api_path>/userdocs endpoint.
         """
 
         with self.app.app_context():
-            resp = self.tc.get('/{}/userlist'.format(
+            resp = self.tc.get('/{}/userdocs'.format(
                                                     self.app.cfg.api_path()))
             self.assertEqual(resp.status, '200 OK')
             self.assertEqual(len(json.loads(resp.data.decode('utf-8'))), 0)
@@ -362,15 +362,15 @@ class JkTestCase(unittest.TestCase):
                                          'Content-Type': 'application/json',
                                          'X-Access-Token': 'secret'},
                                 data='{"foo":"bar"}')
-            resp = self.tc.get('/{}/userlist'.format(self.app.cfg.api_path()),
+            resp = self.tc.get('/{}/userdocs'.format(self.app.cfg.api_path()),
                                headers={'Accept': 'application/json',
                                         'X-Access-Token': 'secret'})
             self.assertEqual(len(json.loads(resp.data.decode('utf-8'))), 1)
-            resp = self.tc.get('/{}/userlist'.format(self.app.cfg.api_path()),
+            resp = self.tc.get('/{}/userdocs'.format(self.app.cfg.api_path()),
                                headers={'Accept': 'application/json',
                                         'X-Access-Token': 'foo'})
             self.assertEqual(len(json.loads(resp.data.decode('utf-8'))), 0)
-            resp = self.tc.get('/{}/userlist'.format(self.app.cfg.api_path()))
+            resp = self.tc.get('/{}/userdocs'.format(self.app.cfg.api_path()))
             self.assertEqual(len(json.loads(resp.data.decode('utf-8'))), 0)
 
     def test_Curation_Range_access(self):

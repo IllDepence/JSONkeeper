@@ -94,9 +94,9 @@ def activity_stream_collection():
         return abort(404, 'Activity Stream does not exist.')
 
 
-@jk.route('/{}/userlist'.format(current_app.cfg.api_path()),
+@jk.route('/{}/userdocs'.format(current_app.cfg.api_path()),
           methods=['GET', 'OPTIONS'])
-def api_userlist():
+def api_userdocs():
     """ Return a list of URLs to all documents stored with the same access
         token as this request.
     """
