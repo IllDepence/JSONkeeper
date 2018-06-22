@@ -291,11 +291,19 @@ def _write_json__request_independent(json_string, json_id, access_token,
         json_doc.json_string = json_string
         db.session.commit()
 
-    if is_json_ld and is_new_document and id_change and not private:
-        # We got JSON-LD and gave it a resolvable id. Depending on the config
-        # we might want to add some Activities to our AS.
+    if is_json_ld and \
+            is_new_document and \
+            id_change and \
+            not private and \
+            access_token != '':
+        # We got JSON-LD and gave it a resolvable id. Furthermore it's neither
+        # private nor posted without access restriction. Depending on the
+        # config we might want to add some Activities to our AS.
         update_activity_stream_create(json_string, json_id, root_elem_types)
-    elif is_json_ld and not is_new_document and not private:
+    elif is_json_ld and \
+            not is_new_document and \
+            not private and \
+            access_token != '':
         # We got JSON-LD with a PUT request (not a new document), so we might
         # want to add an Update activity to our AS.
         update_activity_stream_update(json_string, json_id, root_elem_types)

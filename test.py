@@ -223,7 +223,9 @@ class JkTestCase(unittest.TestCase):
         # # JSON
         resp = self.tc.post('/{}'.format(self.app.cfg.api_path()),
                             headers={'Accept': 'application/json',
-                                     'Content-Type': 'application/json'},
+                                     'Content-Type': 'application/json',
+                                     'X-Access-Token': 'foo',
+                                    },
                             data=curation_json)
         self.assertEqual(resp.status, '201 CREATED')
         json_obj = json.loads(resp.data.decode('utf-8'))
@@ -233,7 +235,8 @@ class JkTestCase(unittest.TestCase):
         # # JSON-LD
         resp = self.tc.post('/{}'.format(self.app.cfg.api_path()),
                             headers={'Accept': 'application/json',
-                                     'Content-Type': 'application/ld+json'
+                                     'Content-Type': 'application/ld+json',
+                                     'X-Access-Token': 'foo',
                                      },
                             data=curation_json)
         self.assertEqual(resp.status, '201 CREATED')
@@ -310,12 +313,14 @@ class JkTestCase(unittest.TestCase):
                                                           'adventure')
             resp = self.tc.put('{}'.format(location),
                                 headers={'Accept': 'application/json',
-                                         'Content-Type': 'application/ld+json'
+                                         'Content-Type': 'application/ld+json',
+                                         'X-Access-Token': 'foo'
                                         },
                                 data=curation_json_changed)
             most_recent_actions = self._get_activities_of_last_as_page()
             self.assertEqual(most_recent_actions[0]['type'], 'Update')
-            resp = self.tc.delete(location)
+            resp = self.tc.delete(location,
+                                  headers={'X-Access-Token': 'foo'})
             most_recent_actions = self._get_activities_of_last_as_page()
             self.assertEqual(most_recent_actions[0]['type'], 'Delete')
 
@@ -353,6 +358,11 @@ class JkTestCase(unittest.TestCase):
         """
 
         with self.app.app_context():
+            resp = self.tc.post('/{}'.format(self.app.cfg.api_path()),
+                                headers={'Accept': 'application/json',
+                                         'Content-Type': 'application/json'},
+                                data='{"foo":"bar"}')
+            # ↑ no access restriction, so shouldn't end up in /userdocs
             resp = self.tc.get('/{}/userdocs'.format(
                                                     self.app.cfg.api_path()))
             self.assertEqual(resp.status, '200 OK')
@@ -414,8 +424,26 @@ class JkTestCase(unittest.TestCase):
             self.assertEqual(json_obj['access_token'], 'foo')
             self.assertEqual(json_obj['private'], True)
 
+    def test_anon_AS(self):
+        """ Test posting JSON-LD anonymously not ending up in AS.
+        """
+
+        if not self.as_serve:
+            raise unittest.SkipTest('Test not applicable for current config.')
+
+        with self.app.app_context():
+            init_id = 'foo'
+            curation_json = self._get_curation_json(init_id)
+            resp = self.tc.post('/{}'.format(self.app.cfg.api_path()),
+                                headers={'Accept': 'application/json',
+                                         'Content-Type': 'application/ld+json',
+                                         'X-Private':'false'},
+                                data=curation_json)
+            resp = self.tc.get('/{}'.format(self.app.cfg.as_coll_url()))
+            self.assertEqual(resp.status, '404 NOT FOUND')
+
     def test_private_AS(self):
-        """ Test if X-Private header.
+        """ Test X-Private header.
         """
 
         if not self.as_serve:
@@ -437,6 +465,7 @@ class JkTestCase(unittest.TestCase):
             resp = self.tc.post('/{}'.format(self.app.cfg.api_path()),
                                 headers={'Accept': 'application/json',
                                          'Content-Type': 'application/ld+json',
+                                         'X-Access-Token': 'foo',
                                          'X-Private':'false'},
                                 data=curation_json)
             location = resp.headers.get('Location')
@@ -449,7 +478,9 @@ class JkTestCase(unittest.TestCase):
 
             resp = self.tc.patch('{}/status'.format(location),
                                  headers={'Accept': 'application/json',
-                                          'Content-Type': 'application/json'},
+                                          'Content-Type': 'application/json',
+                                          'X-Access-Token': 'foo'
+                                         },
                                  data='{"private": "true"}')
             resp = self.tc.get('/{}'.format(self.app.cfg.as_coll_url()))
             json_obj = json.loads(resp.data.decode('utf-8'))

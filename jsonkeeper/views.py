@@ -104,13 +104,14 @@ def api_userdocs():
     if request.method == 'OPTIONS':
         return CORS_preflight_response(request)
 
-    token = get_access_token(request)
-    ids = get_document_IDs_by_access_token(token)
     urls = []
+    token = get_access_token(request)
+    if token != '':
+        ids = get_document_IDs_by_access_token(token)
 
-    for aid in ids:
-        urls.append('{}{}'.format(current_app.cfg.serv_url(),
-                                  url_for('jk.api_json_id', json_id=aid)))
+        for aid in ids:
+            urls.append('{}{}'.format(current_app.cfg.serv_url(),
+                                      url_for('jk.api_json_id', json_id=aid)))
     resp = jsonify(urls)
     return add_CORS_headers(resp), 200
 
