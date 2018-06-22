@@ -59,10 +59,29 @@ class Cfg():
         return self.cfg['activity_generating_types']
 
     def as_pg_store_pref(self):
-        return self.cfg['as_page_store_prefix']
+        """ Prefix for storage IDs of Activity Stream pages.
+        """
+
+        return 'as_page_'
 
     def doc_id_patt(self):
-        return self.cfg['doc_id_pattern']
+        """ Pattern for storage IDs of documents.
+        """
+
+        return ('(as_page_)?[a-z0-9]{8}-[a-z0-9]{4}-'
+                '[a-z0-9]{4}-[a-z0-9]{4}-[a-z0-9]{12}')
+
+    def access_token_frbs_prefix(self):
+        """ Prefix put it front of Firebase access tokens.
+        """
+
+        return 'frbs:'
+
+    def access_token_free_prefix(self):
+        """ Prefix put it front of self managed access tokens.
+        """
+
+        return 'free:'
 
     def _get_default_config(self):
         # later read from config file
@@ -76,10 +95,6 @@ class Cfg():
         cfg['id_rewrite_types'] = []
         cfg['as_collection_url'] = None
         cfg['activity_generating_types'] = []
-        # only internally used
-        cfg['as_page_store_prefix'] = 'as_page_'
-        cfg['doc_id_pattern'] = ('(as_page_)?[a-z0-9]{8}-[a-z0-9]{4}-'
-                                 '[a-z0-9]{4}-[a-z0-9]{4}-[a-z0-9]{12}')
         return cfg
 
     def set_debug_config(self, id_rewrite, as_serve):
@@ -102,9 +117,6 @@ class Cfg():
         else:
             cfg['as_collection_url'] = None
             cfg['activity_generating_types'] = []
-        cfg['as_page_store_prefix'] = 'as_page_'
-        cfg['doc_id_pattern'] = ('(as_page_)?[a-z0-9]{8}-[a-z0-9]{4}-'
-                                 '[a-z0-9]{4}-[a-z0-9]{4}-[a-z0-9]{12}')
         self.cfg = cfg
 
     def _parse_config(self, cp):

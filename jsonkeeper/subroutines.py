@@ -424,16 +424,20 @@ def get_access_token(request):
         - False in case a Firebase ID token could not be verified
     """
 
+    frbs_prefix = current_app.cfg.access_token_frbs_prefix()
+    free_prefix = current_app.cfg.access_token_free_prefix()
+
     if current_app.cfg.use_frbs() and 'X-Firebase-ID-Token' in request.headers:
         id_token = request.headers.get('X-Firebase-ID-Token')
         try:
             decoded_token = firebase_auth.verify_id_token(id_token)
             uid = decoded_token['uid']
-            access_token = uid
+            access_token = '{}{}'.format(frbs_prefix, uid)
         except:
             access_token = False
     elif 'X-Access-Token' in request.headers:
-        access_token = request.headers.get('X-Access-Token')
+        access_token = '{}{}'.format(free_prefix,
+                                     request.headers.get('X-Access-Token'))
     else:
         access_token = ''
     return access_token
@@ -454,13 +458,32 @@ def get_JSON_string_by_ID(json_id):
 
 
 def get_JSON_metadata_by_ID(json_id):
-    metadata = None
+    """ Return a digest of the JSON documents metadata or None if the document
+        does not exist.
 
+        NOTE: this function returns the "outside" representation of an access
+              token (i.e. without the cfg.access_token_frXX_prefix() used for
+              DB storage) and therefore CAN NOT be used to check against the
+              return value of get_access_token(request).
+    """
+
+    metadata = None
+    frbs_prefix = current_app.cfg.access_token_frbs_prefix()
+    free_prefix = current_app.cfg.access_token_free_prefix()
     json_doc = get_JSON_doc_by_ID(json_id)
     if json_doc:
         metadata = OrderedDict()
         metadata['id'] = json_doc.id
-        metadata['access_token'] = json_doc.access_token
+        if frbs_prefix in json_doc.access_token and \
+                json_doc.access_token.index(frbs_prefix) == 0:
+            cut = len(frbs_prefix)
+            metadata['access_token'] = json_doc.access_token[cut:]
+        elif free_prefix in json_doc.access_token and \
+                json_doc.access_token.index(free_prefix) == 0:
+            cut = len(free_prefix)
+            metadata['access_token'] = json_doc.access_token[cut:]
+        else:
+            metadata['access_token'] = json_doc.access_token
         metadata['private'] = bool(json_doc.private)
         metadata['created_at'] = json_doc.created_at.isoformat()
         if json_doc.updated_at:
@@ -574,15 +597,15 @@ def handle_doc_status_request(request, json_id):
         metadata about a JSON document.
     """
 
-    metadata = get_JSON_metadata_by_ID(json_id)
-    if metadata:
+    json_doc = get_JSON_doc_by_ID(json_id)
+    if json_doc:
         access_token = get_access_token(request)
         if access_token is False:
             return abort(403, 'Firebase ID token could not be verified.')
-        if metadata['access_token'] == access_token or \
-                metadata['access_token'] == '':
+        if json_doc.access_token == access_token or \
+                json_doc.access_token == '':
             if request.method == 'GET':
-                resp = Response(json.dumps(metadata))
+                resp = Response(json.dumps(get_JSON_metadata_by_ID(json_id)))
                 resp.headers['Content-Type'] = 'application/json'
                 return add_CORS_headers(resp), 200
             if request.method == 'PATCH':
