@@ -113,11 +113,12 @@ activity\_stream | collection\_url | `None` | path under which an [Activity Stre
 * **Self managed**
     * provide a header `X-Access-Token` when creating a JSON document
     * subsequent `PUT` and `DELETE` requests are only executed when a `X-Access-Token` header with the same value is provided, otherwise a `403 FORBIDDEN` is returned
+    * **NOTE:** client software that self manages access tokens should be written with the possibility of collisions (distinct clients assigning the same token for non identical users) in mind (using UUIDs as tokens would be a way to make collisions unlikely)
 
 #### List of documents for a given token
 Accessing `/<api_path>/userdocs` will return a list of all hosted documents with a matching access token. This means
 
-* no access token → all unrestricted access documents
+* no access token → no documents (documents posted without access token will not be listed)
 * X-Access-Token → all documents created with this token
 * X-Firebase-ID-Token → all documents created by this user
 
@@ -140,8 +141,10 @@ JSONkeeper can be configured to serve an [Activity Stream](https://www.w3.org/TR
 
 Special behaviour is defined for `http://codh.rois.ac.jp/iiif/curation/1#Curation`. Create, Reference and Offer Activities are generated.
 
+For JSON-LD documents that are posted without any access restriction (X-Access-Token or X-Firebase-ID-Token) no Activities will be generated.
+
 #### Private JSON documents
-To prevent JSON documents to appear in the Activity Stream, a header `X-Private` with the value `true` can be provided when creating or updating.
+To prevent access restricted JSON documents to appear in the Activity Stream, a header `X-Private` with the value `true` can be provided when creating or updating.
 
 The `private` setting can furthermore be managed at `/<api_path>/<json_id>/status`. A GET requests will yield metadata associated with the JSON document. A value update is possible through a PATCH request with a payload in the form of `{"private": "<value>"}`, where `<value>` can be "true" or "false".
 
