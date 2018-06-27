@@ -213,7 +213,7 @@ def handle_incoming_json_ld(json_string, json_id):
     return json_string, id_change, root_elem_types
 
 
-def _write_json__request_wrapper(request, given_id, access_token, private):
+def _write_json__request_wrapper(request, given_id, access_token, unlisted):
     """ 1. do request specific things
         2. call _write_json__request_independent
         3. do response specific things
@@ -249,7 +249,7 @@ def _write_json__request_wrapper(request, given_id, access_token, private):
 
     # 2. call _write_json__request_independent
     json_string = _write_json__request_independent(json_string, json_id,
-                                                   access_token, private,
+                                                   access_token, unlisted,
                                                    is_new_document, is_json_ld)
 
     # 3. do response specific things
@@ -264,7 +264,7 @@ def _write_json__request_wrapper(request, given_id, access_token, private):
 
 
 def _write_json__request_independent(json_string, json_id, access_token,
-                                     private, is_new_document, is_json_ld):
+                                     unlisted, is_new_document, is_json_ld):
     """ Get JSON or JSON-LD and save it to DB.`
     """
 
@@ -280,7 +280,7 @@ def _write_json__request_independent(json_string, json_id, access_token,
         # If this is a new JSON document we need to create a database record
         json_doc = JSON_document(id=json_id,
                                  access_token=access_token,
-                                 private=private,
+                                 unlisted=unlisted,
                                  is_json_ld=is_json_ld,
                                  json_string=json_string)
         db.session.add(json_doc)
@@ -294,15 +294,15 @@ def _write_json__request_independent(json_string, json_id, access_token,
     if is_json_ld and \
             is_new_document and \
             id_change and \
-            not private and \
+            not unlisted and \
             access_token != '':
         # We got JSON-LD and gave it a resolvable id. Furthermore it's neither
-        # private nor posted without access restriction. Depending on the
+        # unlisted nor posted without access restriction. Depending on the
         # config we might want to add some Activities to our AS.
         update_activity_stream_create(json_string, json_id, root_elem_types)
     elif is_json_ld and \
             not is_new_document and \
-            not private and \
+            not unlisted and \
             access_token != '':
         # We got JSON-LD with a PUT request (not a new document), so we might
         # want to add an Update activity to our AS.
@@ -311,7 +311,7 @@ def _write_json__request_independent(json_string, json_id, access_token,
     return json_string
 
 
-def write_json(request, given_id, access_token, private):
+def write_json(request, given_id, access_token, unlisted):
     """ Write JSON contents from request to DB. Used for POST requests (new
         document) and PUT requests (update document). Dealing with access
         tokens (given or not in case of POST, correct or not in case of PUT)
@@ -325,7 +325,7 @@ def write_json(request, given_id, access_token, private):
     """
 
     return _write_json__request_wrapper(request, given_id, access_token,
-                                        private)
+                                        unlisted)
 
 
 def patch_metadata(request, json_id):
@@ -339,10 +339,10 @@ def patch_metadata(request, json_id):
     except:
         return abort(400, 'No valid JSON provided.')
 
-    if 'private' in json_dict and json_dict['private'] in ['true', 'false']:
+    if 'unlisted' in json_dict and json_dict['unlisted'] in ['true', 'false']:
         json_doc = get_JSON_doc_by_ID(json_id)
-        if json_dict['private'] == 'false':
-            if json_doc.private == True:
+        if json_dict['unlisted'] == 'false':
+            if json_doc.unlisted == True:
                 # retrospectively set to public, need to create a Create
                 # Activity to make the document visible to crawlers
                 update_activity_stream_create(json_doc.json_string,
@@ -354,14 +354,14 @@ def patch_metadata(request, json_id):
                 #       checking it in update_activity_stream_create, we just
                 #       pass the list of JSON-LD types that the function checks
                 #       against
-            json_doc.private = False
-        elif json_dict['private'] == 'true':
-            if json_doc.private == False:
-                # retrospectively set to private, need to create a Delete
+            json_doc.unlisted = False
+        elif json_dict['unlisted'] == 'true':
+            if json_doc.unlisted == False:
+                # retrospectively set to unlisted, need to create a Delete
                 # Activity and hope that crawlers believe us
                 update_activity_stream_delete(json_doc.json_string,
                                               json_doc.id)
-            json_doc.private = True
+            json_doc.unlisted = True
         db.session.commit()
         return Response(json.dumps(get_JSON_metadata_by_ID(json_id)))
     else:
@@ -404,14 +404,14 @@ def add_CORS_headers(resp):
     return resp
 
 
-def get_private_setting(request):
-    """ Given a request object, return the resulting `private` setting.
+def get_unlisted_setting(request):
+    """ Given a request object, return the resulting `unlisted` setting.
         - True if set to "true"
         - False if set to false nor not set at all
     """
 
-    if 'X-Private' in request.headers and \
-            request.headers.get('X-Private') == 'true':
+    if 'X-Unlisted' in request.headers and \
+            request.headers.get('X-Unlisted') == 'true':
         return True
     return False
 
@@ -484,7 +484,7 @@ def get_JSON_metadata_by_ID(json_id):
             metadata['access_token'] = json_doc.access_token[cut:]
         else:
             metadata['access_token'] = json_doc.access_token
-        metadata['private'] = bool(json_doc.private)
+        metadata['unlisted'] = bool(json_doc.unlisted)
         metadata['created_at'] = json_doc.created_at.isoformat()
         if json_doc.updated_at:
             metadata['updated_at'] = json_doc.updated_at.isoformat()
@@ -516,11 +516,11 @@ def handle_post_request(request):
     """
 
     access_token = get_access_token(request)
-    private = get_private_setting(request)
+    unlisted = get_unlisted_setting(request)
     if access_token is False:
         return abort(403, 'Firebase ID token could not be verified.')
 
-    resp = write_json(request, None, access_token, private)
+    resp = write_json(request, None, access_token, unlisted)
 
     return add_CORS_headers(resp), 201
 
@@ -550,10 +550,10 @@ def handle_put_request(request, json_id):
         if access_token is False:
             return abort(403, 'Firebase ID token could not be verified.')
         json_doc = get_JSON_doc_by_ID(json_id)
-        private = json_doc.private
+        unlisted = json_doc.unlisted
         if json_doc.access_token == access_token or \
                 json_doc.access_token == '':
-            resp = write_json(request, json_id, access_token, private)
+            resp = write_json(request, json_id, access_token, unlisted)
             return add_CORS_headers(resp), 200
         else:
             return abort(403, 'X-Access-Token header value not correct.')

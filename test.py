@@ -408,7 +408,7 @@ class JkTestCase(unittest.TestCase):
                                 headers={'Accept': 'application/json',
                                          'Content-Type': 'application/json',
                                          'X-Access-Token': 'foo',
-                                         'X-Private':'true'},
+                                         'X-Unlisted':'true'},
                                 data='{"baz":"bam"}')
             location = resp.headers.get('Location')
             resp = self.tc.get('{}/status'.format(location),
@@ -422,7 +422,7 @@ class JkTestCase(unittest.TestCase):
                                          'X-Access-Token': 'foo'})
             json_obj = json.loads(resp.data.decode('utf-8'))
             self.assertEqual(json_obj['access_token'], 'foo')
-            self.assertEqual(json_obj['private'], True)
+            self.assertEqual(json_obj['unlisted'], True)
 
     def test_anon_AS(self):
         """ Test posting JSON-LD anonymously not ending up in AS.
@@ -437,13 +437,13 @@ class JkTestCase(unittest.TestCase):
             resp = self.tc.post('/{}'.format(self.app.cfg.api_path()),
                                 headers={'Accept': 'application/json',
                                          'Content-Type': 'application/ld+json',
-                                         'X-Private':'false'},
+                                         'X-Unlisted':'false'},
                                 data=curation_json)
             resp = self.tc.get('/{}'.format(self.app.cfg.as_coll_url()))
             self.assertEqual(resp.status, '404 NOT FOUND')
 
-    def test_private_AS(self):
-        """ Test X-Private header.
+    def test_unlisted_AS(self):
+        """ Test X-Unlisted header.
         """
 
         if not self.as_serve:
@@ -455,7 +455,7 @@ class JkTestCase(unittest.TestCase):
             resp = self.tc.post('/{}'.format(self.app.cfg.api_path()),
                                 headers={'Accept': 'application/json',
                                          'Content-Type': 'application/ld+json',
-                                         'X-Private':'true'},
+                                         'X-Unlisted':'true'},
                                 data=curation_json)
 
             resp = self.tc.get('/{}'.format(self.app.cfg.as_coll_url()))
@@ -466,7 +466,7 @@ class JkTestCase(unittest.TestCase):
                                 headers={'Accept': 'application/json',
                                          'Content-Type': 'application/ld+json',
                                          'X-Access-Token': 'foo',
-                                         'X-Private':'false'},
+                                         'X-Unlisted':'false'},
                                 data=curation_json)
             location = resp.headers.get('Location')
 
@@ -481,7 +481,7 @@ class JkTestCase(unittest.TestCase):
                                           'Content-Type': 'application/json',
                                           'X-Access-Token': 'foo'
                                          },
-                                 data='{"private": "true"}')
+                                 data='{"unlisted": "true"}')
             resp = self.tc.get('/{}'.format(self.app.cfg.as_coll_url()))
             json_obj = json.loads(resp.data.decode('utf-8'))
             # a Delete Action should have been added
