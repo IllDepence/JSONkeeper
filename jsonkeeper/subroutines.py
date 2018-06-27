@@ -547,10 +547,10 @@ def handle_put_request(request, json_id):
 
     if json_string:
         access_token = get_access_token(request)
-        private = get_private_setting(request)
         if access_token is False:
             return abort(403, 'Firebase ID token could not be verified.')
         json_doc = get_JSON_doc_by_ID(json_id)
+        private = json_doc.private
         if json_doc.access_token == access_token or \
                 json_doc.access_token == '':
             resp = write_json(request, json_id, access_token, private)
