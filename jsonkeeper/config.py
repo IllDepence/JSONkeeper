@@ -61,6 +61,12 @@ class Cfg():
     def userdocs_extra(self):
         return self.cfg['userdocs_extra']
 
+    def garbage_collection_interval(self):
+        return self.cfg['garbage_collection_interval']
+
+    def garbage_collection_age(self):
+        return self.cfg['garbage_collection_age']
+
     def as_pg_store_pref(self):
         """ Prefix for storage IDs of Activity Stream pages.
         """
@@ -99,6 +105,8 @@ class Cfg():
         cfg['as_collection_url'] = None
         cfg['activity_generating_types'] = []
         cfg['userdocs_extra'] = []
+        cfg['garbage_collection_interval'] = -1
+        cfg['garbage_collection_age'] = -1
         return cfg
 
     def set_debug_config(self, id_rewrite, as_serve):
@@ -109,6 +117,8 @@ class Cfg():
         cfg['use_firebase'] = False                         # maybe change
         cfg['firebase_service_account_key_file'] = None     # at some point
         cfg['userdocs_extra'] = []
+        cfg['garbage_collection_interval'] = -1
+        cfg['garbage_collection_age'] = -1
         if id_rewrite:
             cfg['use_id_rewrite'] = True
             cfg['id_rewrite_types'] = [('http://codh.rois.ac.jp/iiif/curation/'
@@ -148,6 +158,26 @@ class Cfg():
                 uap = cp['api'].get('userdocs_added_properties')
                 uap_list = [p.strip() for p in uap.split(',') if len(p) > 0]
                 cfg['userdocs_extra'] = uap_list
+            valid_garbage = True
+            if cp['api'].get('garbage_collection_interval'):
+                valid_garbage = not valid_garbage
+                try:
+                    str_val = cp['api'].get('garbage_collection_interval')
+                    cfg['garbage_collection_interval'] = int(str_val)
+                except ValueError:
+                    fails.append(('garbage collection interval in api section '
+                                  'must be an integer'))
+            if cp['api'].get('garbage_collection_age'):
+                valid_garbage = not valid_garbage
+                try:
+                    str_val = cp['api'].get('garbage_collection_age')
+                    cfg['garbage_collection_age'] = int(str_val)
+                except ValueError:
+                    fails.append(('garbage collection age in api section must '
+                                  'be an integer'))
+            if not valid_garbage:
+                fails.append(('garbage collection requires *both* interval and'
+                              ' age to be set'))
 
         # Firebase
         if 'firebase' in cp.sections():

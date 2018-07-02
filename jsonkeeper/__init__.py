@@ -4,13 +4,16 @@
     functions for JSON-LD.
 """
 
+import atexit
 import firebase_admin
 from flask import Flask, jsonify
 from pyld import jsonld
 from werkzeug.exceptions import default_exceptions, HTTPException
 from werkzeug.routing import BaseConverter
 from jsonkeeper.config import Cfg
-from jsonkeeper.subroutines import add_CORS_headers
+from jsonkeeper.subroutines import add_CORS_headers, collect_garbage
+from apscheduler.schedulers.background import BackgroundScheduler
+from apscheduler.triggers.interval import IntervalTrigger
 
 
 def create_app(**kwargs):
@@ -64,5 +67,17 @@ def create_app(**kwargs):
 
         from jsonkeeper.views import jk
         app.register_blueprint(jk)
+
+        if app.cfg.garbage_collection_interval() > 0:
+            scheduler = BackgroundScheduler()
+            scheduler.start()
+            scheduler.add_job(
+                func=collect_garbage,
+                trigger=IntervalTrigger(
+                            seconds=app.cfg.garbage_collection_interval()),
+                id='garbage_collection_job',
+                name='collect garbage according to interval set in config',
+                replace_existing=True)
+            atexit.register(lambda: scheduler.shutdown())
 
         return app

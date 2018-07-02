@@ -705,3 +705,47 @@ def remove_document_from_actstr(to_rem_id):
             db.session.commit()
             return True
     return False
+
+
+def collect_garbage():
+    """ Delete old documents without access restriction.
+
+        This function does not run inside the normal JSONkeeper app context
+        (because it is not triggered by a web request) and "therefore" looks a
+        bit messy, has imports inside it, etc.
+    """
+
+    # make DB accessible
+    from flask import Flask
+    app = Flask(__name__)
+    app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///keep.db'
+    app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+    with app.app_context():
+        from jsonkeeper.models import db, JSON_document
+        from jsonkeeper.config import Cfg
+        from sqlalchemy import select
+        from sqlalchemy.sql import func
+        cfg = Cfg()
+        db.init_app(app)
+
+        # surely not the cleanest way to get the current DB time
+        sel = select([func.now()])
+        resultproxy = db.session.connection().execute(sel)
+        for rowproxy in resultproxy:
+            for tup in rowproxy.items():
+                current_db_time = tup[1]
+
+        # what we're actually here for
+        docs = JSON_document.query.filter_by(access_token='').all()
+        garbage = []
+        for doc in docs:
+            if doc.updated_at:
+                doc_db_time = doc.updated_at
+            else:
+                doc_db_time = doc.created_at
+            age = (current_db_time - doc_db_time).total_seconds()
+            if age > cfg.garbage_collection_age():
+                garbage.append(doc)
+        for doc in garbage:
+            db.session.delete(doc)
+            db.session.commit()

@@ -3,3 +3,4 @@ firebase_admin>=2.5.0
 Flask>=0.12
 Flask-SQLAlchemy>=2.3.2
 PyLD>=0.8.2
+apscheduler>=3.5.1
