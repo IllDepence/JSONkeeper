@@ -375,7 +375,7 @@ def CORS_preflight_response(request):
     resp = Response('')
     resp.headers['Access-Control-Allow-Origin'] = '*'
     resp.headers['Access-Control-Allow-Methods'] = ('GET,POST,DELETE,OPTIONS,'
-                                                    'PUT')
+                                                    'PUT,PATCH')
     # ↓ what will actually be available via Access-Control-Expose-Headers
     allowed_headers = 'Content-Type,Access-Control-Allow-Origin,Location'
     # ↓ if they ask for something specific we just "comply" to make CORS work
