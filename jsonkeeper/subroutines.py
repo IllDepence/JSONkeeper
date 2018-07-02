@@ -468,38 +468,39 @@ def get_JSON_metadata_by_ID(json_id):
     """
 
     metadata = None
-    frbs_prefix = current_app.cfg.access_token_frbs_prefix()
-    free_prefix = current_app.cfg.access_token_free_prefix()
     json_doc = get_JSON_doc_by_ID(json_id)
     if json_doc:
-        metadata = OrderedDict()
-        metadata['id'] = json_doc.id
-        if frbs_prefix in json_doc.access_token and \
-                json_doc.access_token.index(frbs_prefix) == 0:
-            cut = len(frbs_prefix)
-            metadata['access_token'] = json_doc.access_token[cut:]
-        elif free_prefix in json_doc.access_token and \
-                json_doc.access_token.index(free_prefix) == 0:
-            cut = len(free_prefix)
-            metadata['access_token'] = json_doc.access_token[cut:]
-        else:
-            metadata['access_token'] = json_doc.access_token
-        metadata['unlisted'] = bool(json_doc.unlisted)
-        metadata['created_at'] = json_doc.created_at.isoformat()
-        if json_doc.updated_at:
-            metadata['updated_at'] = json_doc.updated_at.isoformat()
-        else:
-            metadata['updated_at'] = json_doc.updated_at
-
+        metadata = _get_JSON_metadata_from_doc(json_doc)
     return metadata
 
 
-def get_document_IDs_by_access_token(token):
-    docs = JSON_document.query.filter_by(access_token=token).all()
-    if docs:
-        return [d.id for d in docs]
+def _get_JSON_metadata_from_doc(json_doc):
+    """ Internal method that is used for status requests and the userdocs
+        endpoint. Returns a digest of the JSON documents metadata.
+    """
+
+    frbs_prefix = current_app.cfg.access_token_frbs_prefix()
+    free_prefix = current_app.cfg.access_token_free_prefix()
+    metadata = OrderedDict()
+    metadata['id'] = json_doc.id
+    if frbs_prefix in json_doc.access_token and \
+            json_doc.access_token.index(frbs_prefix) == 0:
+        cut = len(frbs_prefix)
+        metadata['access_token'] = json_doc.access_token[cut:]
+    elif free_prefix in json_doc.access_token and \
+            json_doc.access_token.index(free_prefix) == 0:
+        cut = len(free_prefix)
+        metadata['access_token'] = json_doc.access_token[cut:]
     else:
-        return []
+        metadata['access_token'] = json_doc.access_token
+    metadata['unlisted'] = bool(json_doc.unlisted)
+    metadata['created_at'] = json_doc.created_at.isoformat()
+    if json_doc.updated_at:
+        metadata['updated_at'] = json_doc.updated_at.isoformat()
+    else:
+        metadata['updated_at'] = json_doc.updated_at
+
+    return metadata
 
 
 def get_actstr_collection_pages():
@@ -615,6 +616,31 @@ def handle_doc_status_request(request, json_id):
             return abort(403, 'X-Access-Token header value not correct.')
     else:
         return abort(404, 'JSON document with ID {} not found'.format(json_id))
+
+
+def handle_userdocs_request(request):
+    """ Return a list of descriptions of all documents stored with the same
+        access token as the one given with this request.
+    """
+
+    ret = []
+    token = get_access_token(request)
+    if token != '':
+        docs = JSON_document.query.filter_by(access_token=token).all()
+
+        for doc in docs:
+            metadata = _get_JSON_metadata_from_doc(doc)
+            if len(current_app.cfg.userdocs_extra()) > 0:
+                json_doc = json.loads(doc.json_string)
+                for extra in current_app.cfg.userdocs_extra():
+                    if type(json_doc) == dict and extra in json_doc:
+                        metadata[extra] = json_doc[extra]
+                    else:
+                        metadata[extra] = None
+            ret.append(metadata)
+
+    resp = Response(json.dumps(ret))
+    return add_CORS_headers(resp), 200
 
 
 def is_in_actstr(doc_id):

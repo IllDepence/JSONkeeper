@@ -7,14 +7,14 @@ from jsonkeeper.subroutines import (
     get_access_token,
     get_JSON_string_by_ID,
     get_JSON_metadata_by_ID,
-    get_document_IDs_by_access_token,
     get_actstr_collection_pages,
     get_actstr_collection,
     handle_post_request,
     handle_get_request,
     handle_put_request,
     handle_delete_request,
-    handle_doc_status_request)
+    handle_doc_status_request,
+    handle_userdocs_request)
 from flask import (abort, Blueprint, current_app, redirect, request, jsonify,
                    Response, url_for)
 from util.iiif import Curation
@@ -97,23 +97,14 @@ def activity_stream_collection():
 @jk.route('/{}/userdocs'.format(current_app.cfg.api_path()),
           methods=['GET', 'OPTIONS'])
 def api_userdocs():
-    """ Return a list of URLs to all documents stored with the same access
-        token as this request.
+    """ Return a list of descriptions of all documents stored with the same
+        access token as the one given with this request.
     """
 
     if request.method == 'OPTIONS':
         return CORS_preflight_response(request)
-
-    urls = []
-    token = get_access_token(request)
-    if token != '':
-        ids = get_document_IDs_by_access_token(token)
-
-        for aid in ids:
-            urls.append('{}{}'.format(current_app.cfg.serv_url(),
-                                      url_for('jk.api_json_id', json_id=aid)))
-    resp = jsonify(urls)
-    return add_CORS_headers(resp), 200
+    else:
+        return handle_userdocs_request(request)
 
 
 @jk.route('/{}/<regex("{}"):json_id>/range<r_num>'.format(

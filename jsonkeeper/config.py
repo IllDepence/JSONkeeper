@@ -58,6 +58,9 @@ class Cfg():
     def as_types(self):
         return self.cfg['activity_generating_types']
 
+    def userdocs_extra(self):
+        return self.cfg['userdocs_extra']
+
     def as_pg_store_pref(self):
         """ Prefix for storage IDs of Activity Stream pages.
         """
@@ -95,6 +98,7 @@ class Cfg():
         cfg['id_rewrite_types'] = []
         cfg['as_collection_url'] = None
         cfg['activity_generating_types'] = []
+        cfg['userdocs_extra'] = []
         return cfg
 
     def set_debug_config(self, id_rewrite, as_serve):
@@ -104,6 +108,7 @@ class Cfg():
         cfg['api_path'] = 'api'
         cfg['use_firebase'] = False                         # maybe change
         cfg['firebase_service_account_key_file'] = None     # at some point
+        cfg['userdocs_extra'] = []
         if id_rewrite:
             cfg['use_id_rewrite'] = True
             cfg['id_rewrite_types'] = [('http://codh.rois.ac.jp/iiif/curation/'
@@ -134,8 +139,15 @@ class Cfg():
                 cfg['db_uri'] = cp['environment'].get('db_uri')
             if cp['environment'].get('server_url'):
                 cfg['server_url'] = cp['environment'].get('server_url')
-            if cp['environment'].get('custom_api_path'):
-                cfg['api_path'] = cp['environment'].get('custom_api_path')
+
+        # API
+        if 'api' in cp.sections():
+            if cp['api'].get('custom_api_path'):
+                cfg['api_path'] = cp['api'].get('custom_api_path')
+            if cp['api'].get('userdocs_added_properties'):
+                uap = cp['api'].get('userdocs_added_properties')
+                uap_list = [p.strip() for p in uap.split(',') if len(p) > 0]
+                cfg['userdocs_extra'] = uap_list
 
         # Firebase
         if 'firebase' in cp.sections():
