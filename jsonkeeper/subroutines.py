@@ -588,7 +588,8 @@ def handle_delete_request(request, json_id):
             resp = Response('')
             return add_CORS_headers(resp), 200
         else:
-            return abort(403, 'X-Access-Token header value not correct.')
+            return abort(403, ('X-Access-Token header value not correct or acc'
+                               'ess token header not present at all.'))
     else:
         return abort(404, 'JSON document with ID {} not found'.format(json_id))
 
