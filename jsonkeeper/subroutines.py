@@ -629,6 +629,7 @@ def handle_userdocs_request(request):
     if token != '':
         docs = JSON_document.query.filter_by(access_token=token).all()
 
+        # get docs
         for doc in docs:
             metadata = _get_JSON_metadata_from_doc(doc)
             if len(current_app.cfg.userdocs_extra()) > 0:
@@ -639,6 +640,13 @@ def handle_userdocs_request(request):
                     else:
                         metadata[extra] = None
             ret.append(metadata)
+
+        # # parse extra parameters if present
+        # start = int(request.args.get('start', 0))
+        # limit = int(request.args.get('limit', -1))
+        # ret = ret[start:]
+        # if limit >= 0 and len(ret) > limit:
+        #      ret = ret[0:limit]
 
     resp = Response(json.dumps(ret))
     return add_CORS_headers(resp), 200
