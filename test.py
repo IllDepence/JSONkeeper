@@ -3,7 +3,7 @@ import os
 import unittest
 import uuid
 from jsonkeeper import create_app
-from jsonkeeper.models import JSON_document
+from jsonkeeper.models import JSON_document, db
 
 
 class JkTestCase(unittest.TestCase):
@@ -179,6 +179,27 @@ class JkTestCase(unittest.TestCase):
             json_docs = JSON_document.query.all()
             json_ids = [j.id for j in json_docs]
             self.assertNotIn(json_id, json_ids)
+
+    def test_legacy_id(self):
+        """ Test if legacy IDs are working.
+        """
+
+        with self.app.app_context():
+            legacy_id = ('6833bc52d8c7bf9fc6b744350fd513b4ac4a682f2cdf203de2d6'
+                         'ea1195422e4a')
+            json_string = '{"old": "doc"}'
+            json_doc = JSON_document(id=legacy_id,
+                                     access_token='',
+                                     unlisted=False,
+                                     is_json_ld=False,
+                                     json_string=json_string)
+            db.session.add(json_doc)
+            db.session.commit()
+            resp = self.tc.get('/{}/{}'.format(self.app.cfg.api_path(),
+                                               legacy_id),
+                               headers={'Accept': 'application/json'})
+            self.assertEqual(resp.status, '200 OK')
+            self.assertEqual(resp.data.decode('utf-8'), json_string)
 
     def _get_curation_json(self, init_id):
         can_id = ('http://iiif.bodleian.ox.ac.uk/iiif/canvas/03818fac-9ba6-438'

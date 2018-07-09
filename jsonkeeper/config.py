@@ -77,8 +77,10 @@ class Cfg():
         """ Pattern for storage IDs of documents.
         """
 
-        return ('(as_page_)?[a-z0-9]{8}-[a-z0-9]{4}-'
-                '[a-z0-9]{4}-[a-z0-9]{4}-[a-z0-9]{12}')
+        current_pattern = ('(as_page_)?[a-z0-9]{8}-[a-z0-9]{4}-[a-z0-9]{4}-'
+                           '[a-z0-9]{4}-[a-z0-9]{12}')
+        lecacy_pattern = '[a-z0-9]{64}'
+        return ('({}|{})'.format(current_pattern, lecacy_pattern))
 
     def access_token_frbs_prefix(self):
         """ Prefix put it front of Firebase access tokens.
