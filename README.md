@@ -150,7 +150,7 @@ For JSON-LD documents that are posted without any access restriction (X-Access-T
 #### Unlisted JSON documents
 To prevent access restricted JSON documents to appear in the Activity Stream, a header `X-Unlisted` with the value `true` can be provided when creating, but not changed when updating.
 
-To manage a document's `unlisted` setting use `/<api_path>/<json_id>/status`. A GET requests will yield metadata associated with the JSON document. A value update is possible through a PATCH request with a payload in the form of `{"unlisted": "<value>"}`, where `<value>` can be "true" or "false".
+To manage a document's `unlisted` setting use `/<api_path>/<json_id>/status`. A GET requests will yield metadata associated with the JSON document. A value update is possible through a PATCH request with a payload in the form of `{"unlisted": <value>}`, where `<value>` can be `true` or `false`.
 
 - - -
 

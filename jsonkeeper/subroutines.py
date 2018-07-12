@@ -339,9 +339,9 @@ def patch_metadata(request, json_id):
     except:
         return abort(400, 'No valid JSON provided.')
 
-    if 'unlisted' in json_dict and json_dict['unlisted'] in ['true', 'false']:
+    if 'unlisted' in json_dict and json_dict['unlisted'] in [True, False]:
         json_doc = get_JSON_doc_by_ID(json_id)
-        if json_dict['unlisted'] == 'false':
+        if json_dict['unlisted'] == False:
             if json_doc.unlisted == True:
                 # retrospectively set to public, need to create a Create
                 # Activity to make the document visible to crawlers
@@ -355,7 +355,7 @@ def patch_metadata(request, json_id):
                 #       pass the list of JSON-LD types that the function checks
                 #       against
             json_doc.unlisted = False
-        elif json_dict['unlisted'] == 'true':
+        elif json_dict['unlisted'] == True:
             if json_doc.unlisted == False:
                 # retrospectively set to unlisted, need to create a Delete
                 # Activity and hope that crawlers believe us
@@ -649,6 +649,7 @@ def handle_userdocs_request(request):
         #      ret = ret[0:limit]
 
     resp = Response(json.dumps(ret))
+    resp.headers['Content-Type'] = 'application/json'
     return add_CORS_headers(resp), 200
 
 

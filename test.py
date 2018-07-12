@@ -502,7 +502,7 @@ class JkTestCase(unittest.TestCase):
                                           'Content-Type': 'application/json',
                                           'X-Access-Token': 'foo'
                                          },
-                                 data='{"unlisted": "true"}')
+                                 data='{"unlisted": true}')
             resp = self.tc.get('/{}'.format(self.app.cfg.as_coll_url()))
             json_obj = json.loads(resp.data.decode('utf-8'))
             # a Delete Action should have been added
