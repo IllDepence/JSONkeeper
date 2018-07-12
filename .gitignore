@@ -1,6 +1,7 @@
 venv
 *.swp
 *.db
+*.pyc
 __pycache__
 firebase-adminsdk.json
 gunicorn_config.py

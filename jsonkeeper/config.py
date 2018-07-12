@@ -154,8 +154,8 @@ class Cfg():
 
         # API
         if 'api' in cp.sections():
-            if cp['api'].get('custom_api_path'):
-                cfg['api_path'] = cp['api'].get('custom_api_path')
+            if cp['api'].get('api_path'):
+                cfg['api_path'] = cp['api'].get('api_path')
             if cp['api'].get('userdocs_added_properties'):
                 uap = cp['api'].get('userdocs_added_properties')
                 uap_list = [p.strip() for p in uap.split(',') if len(p) > 0]
@@ -198,7 +198,7 @@ class Cfg():
 
         # Activity stream prerequesites
         if 'activity_stream' in cp.sections() and \
-           len(cp['activity_stream'].get('collection_url', '')) > 0:
+           len(cp['activity_stream'].get('collection_endpoint', '')) > 0:
             as_fail = None
 
             # Need to define types
@@ -219,8 +219,8 @@ class Cfg():
                            ' @id rewriting.')
 
             if not as_fail:
-                cfg['as_collection_url'] = cp['activity_stream'].get('collecti'
-                                                                     'on_url')
+                cfg['as_collection_url'] = cp['activity_stream'
+                                              ].get('collection_endpoint')
                 cfg['activity_generating_types'] = agt_list
             else:
                 fails.append(as_fail)

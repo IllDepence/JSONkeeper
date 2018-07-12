@@ -17,19 +17,20 @@ A flask web application for storing JSON documents; with some special functions 
 * create virtual environment: `$ python3 -m venv venv`
 * activate virtual environment: `$ source venv/bin/activate`
 * install requirements: `$ pip install -r requirements.txt`
+* depending on the type of database you are going to use, you might need to install an additional Python database driver (see [SQLAlchemy supported databases](http://docs.sqlalchemy.org/en/latest/core/engines.html#supported-databases))
 
 ## Config
 section | key | default | explanation
 ------- | --- | ------- | -----------
 environment | db\_uri | sqlite:///keep.db | a [SQLAlchemy database URI](http://docs.sqlalchemy.org/en/latest/core/engines.html#database-urls)
-&zwnj;      | server\_uri | http://localhost:5000 | server URL beginning with the schema and ending with the TLD or port, without any path<br>(e.g. `http://ikeepjson.com` but not `http://sirtetris.com/jsonkeeper`)
-api         | custom\_api\_path | api | specifies the endpoint for API access<br>(e.g. `api` →  `http://ikeepjson.com/api` or `http://sirtetris.com/jsonkeeper/api`)
+&zwnj;      | server\_url | http://localhost:5000 | server URL beginning with the schema and ending with the TLD or port, without any path<br>(e.g. `http://ikeepjson.com` but not `http://sirtetris.com/jsonkeeper`)
+api         | api\_path | api | specifies the endpoint for API access<br>(e.g. `json` →  `http://ikeepjson.com/json` or `http://sirtetris.com/jsonkeeper/json`)
 &zwnj;      | userdocs\_added\_properties | `[]` | list of additional attributes that are returned by the /userdocs endpoint, if they are contained in a document
 &zwnj;      | garbage\_collection\_interval | -1 | garbage collection interval in seconds (value <=0 deactivates gargabe collection)
 &zwnj;      | garbage\_collection\_age | -1 | time in seconds that has to pass after the creation or last update of a document *without access restriction* in order for it to be considered garbage<br>documents with access restriction are never automatically deleted
 firebase | service\_account\_key\_file | `None` | can be set for Google Firebase integration ([details below](#access-tokens))
 json-ld | rewrite\_types | `[]` | comma seperated list of [JSON-LD](https://json-ld.org/spec/latest/json-ld/) types for which [@id](https://json-ld.org/spec/latest/json-ld/#node-identifiers) should be set to a dereferencable URL ([details below](#json-ld))
-activity\_stream | collection\_url | `None` | path under which an [Activity Stream](https://www.w3.org/TR/activitystreams-core/) Collection should be served (e.g. `as/collection.json` →  `http://ikeepjson.com/as/collection.json`) ([details below](#activity-stream))
+activity\_stream | collection\_endpoint | `None` | path under which an [Activity Stream](https://www.w3.org/TR/activitystreams-core/) Collection should be served (e.g. `as/collection.json` →  `http://ikeepjson.com/as/collection.json`) ([details below](#activity-stream))
 &zwnj;           | activity\_generating\_types | `[]` | comma seperated list of JSON-LD types for which Activites (`Create`, `Reference`, `Offer`) should be created
 
 ## Serve
@@ -45,8 +46,8 @@ activity\_stream | collection\_url | `None` | path under which an [Activity Stre
 
 * add proxy rules to apache (e.g. in `/etc/apache2/sites-enabled/000-default.conf` within the `<VirtualHost *:80>` block):
 
-        ProxyPassMatch "^/JSONkeeper/(.*)" "http://localhost:8000/JSONkeeper/$1"
-        ProxyPassReverse "^/JSONkeeper/(.*)" "http://localhost:8000/JSONkeeper/$1"
+        ProxyPassMatch "^/JSONkeeper/(.*)" "http://localhost:5000/JSONkeeper/$1"
+        ProxyPassReverse "^/JSONkeeper/(.*)" "http://localhost:5000/JSONkeeper/$1"
 
 * restart apache, get and start gunicorn
 
@@ -54,7 +55,7 @@ activity\_stream | collection\_url | `None` | path under which an [Activity Stre
         $ sudo service apache2 reload
         $ source venv/bin/activate
         $ pip install gunicorn
-        $ gunicorn --bind localhost:8000 -e SCRIPT_NAME='/JSONkeeper' 'jsonkeeper:create_app()'
+        $ gunicorn --bind localhost:5000 -e SCRIPT_NAME='/JSONkeeper' 'jsonkeeper:create_app()'
 
 #### Alternatives
 * [Deployment Options](http://flask.pocoo.org/docs/0.12/deploying/) (be aware that JSONkeeper uses the [Application Factories](http://flask.pocoo.org/docs/0.12/patterns/appfactories/) pattern, some adjustments to the deployment options listed may be necessary)
@@ -126,7 +127,7 @@ Accessing `/<api_path>/userdocs` will return a list of all hosted documents with
 * X-Firebase-ID-Token → all documents created by this user
 
 ## JSON-LD
-JSONkeeper can be configured to host JSON-LD documents in a sensible manner.
+JSON­keeper can be configured to host JSON-LD documents in a sensible manner.
 
 #### Example:
 If the [configuration](#config) contains a section
@@ -135,12 +136,12 @@ If the [configuration](#config) contains a section
     rewrite_types = http://codh.rois.ac.jp/iiif/curation/1#Curation,
                     http://iiif.io/api/presentation/2#Range
 
-and a [POST](https://github.com/IllDepence/JSONkeeper/blob/master/README.md#create) request is issued with `Content-Type` set to `application/ld+json` *and* the request's content is a valid JSON-LD document whose [expanded](https://json-ld.org/spec/latest/json-ld-api/#expansion-algorithms) `@type` is listed in the configuration, *then* the document's [@id](https://json-ld.org/spec/latest/json-ld/#node-identifiers) is set to the URL where JSONkeeper will serve the document.
+and a [POST](https://github.com/IllDepence/JSONkeeper/blob/master/README.md#create) request is issued with `Content-Type` set to `application/ld+json` *and* the request's content is a valid JSON-LD document whose [expanded](https://json-ld.org/spec/latest/json-ld-api/#expansion-algorithms) `@type` is listed in the configuration, *then* the document's [@id](https://json-ld.org/spec/latest/json-ld/#node-identifiers) is set to the URL where JSON­keeper will serve the document.
 
 Special behaviour is defined for `http://codh.rois.ac.jp/iiif/curation/1#Curation`. `http://iiif.io/api/presentation/2#Range` nodes within the Curation also are assigned a dereferencable `@id`.
 
 ## Activity Stream
-JSONkeeper can be configured to serve an [Activity Stream](https://www.w3.org/TR/activitystreams-core/) in form of a Collection. The only type of Activity that is generated right now for all types of JSON-LD documents is [Create](https://www.w3.org/TR/activitystreams-vocabulary/#dfn-create).
+JSON­keeper can be configured to serve an [Activity Stream](https://www.w3.org/TR/activitystreams-core/) in form of a Collection. The only type of Activity that is generated right now for all types of JSON-LD documents is [Create](https://www.w3.org/TR/activitystreams-vocabulary/#dfn-create).
 
 Special behaviour is defined for `http://codh.rois.ac.jp/iiif/curation/1#Curation`. Create, Reference and Offer Activities are generated.
 
@@ -154,8 +155,8 @@ To manage a document's `unlisted` setting use `/<api_path>/<json_id>/status`. A 
 - - -
 
 ## Logo
-The JSONkeeper logo uses image content from [十二類絵巻](http://codh.rois.ac.jp/pmjt/book/200015137/) in the [日本古典籍データセット（国文研所蔵）](http://codh.rois.ac.jp/pmjt/book/) provided by the [Center for Open Data in the Humanities](http://codh.rois.ac.jp/), used under [CC-BY-SA 4.0](http://creativecommons.org/licenses/by-sa/4.0/).
-The JSONkeeper logo itself is licensed under [CC-BY-SA 4.0](http://creativecommons.org/licenses/by-sa/4.0/) by Tarek Saier.
+The JSON­keeper logo uses image content from [十二類絵巻](http://codh.rois.ac.jp/pmjt/book/200015137/) in the [日本古典籍データセット（国文研所蔵）](http://codh.rois.ac.jp/pmjt/book/) provided by the [Center for Open Data in the Humanities](http://codh.rois.ac.jp/), used under [CC-BY-SA 4.0](http://creativecommons.org/licenses/by-sa/4.0/).
+The JSON­keeper logo itself is licensed under [CC-BY-SA 4.0](http://creativecommons.org/licenses/by-sa/4.0/) by Tarek Saier. A high resolution version (3052×2488 px) can be downloaded [here](http://moc.sirtetris.com/jsonkeeper_logo_full.png).
 
 ## Support
 Sponsored by the National Institute of Informatics.  
