@@ -141,11 +141,11 @@ and a [POST](https://github.com/IllDepence/JSONkeeper/blob/master/README.md#crea
 Special behaviour is defined for `http://codh.rois.ac.jp/iiif/curation/1#Curation`. `http://iiif.io/api/presentation/2#Range` nodes within the Curation also are assigned a dereferencable `@id`.
 
 ## Activity Stream
-JSON­keeper can be configured to serve an [Activity Stream](https://www.w3.org/TR/activitystreams-core/) in form of a Collection. The only type of Activity that is generated right now for all types of JSON-LD documents is [Create](https://www.w3.org/TR/activitystreams-vocabulary/#dfn-create).
+JSON­keeper can be configured to serve an [Activity Stream](https://www.w3.org/TR/activitystreams-core/) that implements the [IIIF Change Discovery API 0.1](https://iiif.io/api/discovery/0.1/) at [conformance level 2](https://iiif.io/api/discovery/0.1/#level-2-complete-change-list). This means a complete change list for respective JSON-LD documents is generated, allowing other applications to stay in sync with JSON­keeper in an effective manner.
 
-Special behaviour is defined for `http://codh.rois.ac.jp/iiif/curation/1#Curation`. Create, Reference and Offer Activities are generated.
+Special behaviour is defined for `http://codh.rois.ac.jp/iiif/curation/1#Curation`, for which additional Reference and Offer Activities are generated.
 
-For JSON-LD documents that are posted without any access restriction (X-Access-Token or X-Firebase-ID-Token) no Activities will be generated.
+**NOTE:** For JSON-LD documents that are posted without any access restriction (X-Access-Token or X-Firebase-ID-Token) no Activities will be generated.
 
 #### Unlisted JSON documents
 To prevent access restricted JSON documents to appear in the Activity Stream, a header `X-Unlisted` with the value `true` can be provided when creating, but not changed when updating.
