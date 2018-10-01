@@ -24,6 +24,7 @@ section | key | default | explanation
 ------- | --- | ------- | -----------
 environment | db\_uri | sqlite:///keep.db | a [SQLAlchemy database URI](http://docs.sqlalchemy.org/en/latest/core/engines.html#database-urls)
 &zwnj;      | server\_url | http://localhost:5000 | server URL beginning with the schema and ending with the TLD or port, without any path<br>(e.g. `http://ikeepjson.com` but not `http://sirtetris.com/jsonkeeper`)
+&zwnj;      | log\_file | /tmp/jk\_log.txt | file system path to the log file
 api         | api\_path | api | specifies the endpoint for API access<br>(e.g. `json` →  `http://ikeepjson.com/json` or `http://sirtetris.com/jsonkeeper/json`)
 &zwnj;      | userdocs\_added\_properties | `[]` | list of additional attributes that are returned by the /userdocs endpoint, if they are contained in a document
 &zwnj;      | garbage\_collection\_interval | -1 | garbage collection interval in seconds (value <=0 deactivates gargabe collection)

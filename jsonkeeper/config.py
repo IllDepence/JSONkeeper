@@ -2,6 +2,7 @@
 """
 
 import configparser
+import datetime
 import os
 import re
 import sys
@@ -12,21 +13,45 @@ class Cfg():
     def __init__(self, path='config.ini'):
         cp = configparser.ConfigParser()
         if not os.path.exists(path):
-            print('Config file "{}" not found.\nExiting.'.format(path))
+            msg = 'Config file "{}" not found. Exiting.'.format(path)
+            print(msg)
+            self.log_cfg(None, msg)
             sys.exit(1)
         cp.read(path)
         fail, cfg = self._parse_config(cp)
         if fail:
-            print(fail)
-            print('Exiting.')
+            msg = '{} Exiting.'.format(fail)
+            print(msg)
+            self.log_cfg(None, msg)
             sys.exit(1)
         self.cfg = cfg
+
+    def log_cfg(self, cp, msg):
+        """ Write a log message to the log file BEFORE the config has been
+            parsed.
+        """
+
+        if cp is not None and \
+                'environment' in cp.sections() and \
+                cp['environment'].get('log_file'):
+            log_file = cp['environment'].get('log_file')
+        else:
+            log_file = self._default_log_file()
+        timestamp = str(datetime.datetime.now()).split('.')[0]
+        with open(log_file, 'a') as f:
+            f.write('[{}]   {}\n'.format(timestamp, msg))
+
+    def _default_log_file(self):
+        return '/tmp/jk_log.txt'
 
     def db_uri(self):
         return self.cfg['db_uri']
 
     def serv_url(self):
         return self.cfg['server_url']
+
+    def log_file(self):
+        return self.cfg['log_file']
 
     def api_path(self):
         return self.cfg['api_path']
@@ -99,6 +124,7 @@ class Cfg():
         cfg = {}
         cfg['db_uri'] = 'sqlite:///keep.db'
         cfg['server_url'] = 'http://localhost:5000'
+        cfg['log_file'] = self._default_log_file()
         cfg['api_path'] = 'api'
         cfg['use_firebase'] = False
         cfg['firebase_service_account_key_file'] = None
@@ -115,6 +141,7 @@ class Cfg():
         cfg = {}
         cfg['db_uri'] = 'sqlite://'
         cfg['server_url'] = 'http://localhost:5000'
+        cfg['log_file'] = self._default_log_file()
         cfg['api_path'] = 'api'
         cfg['use_firebase'] = False                         # maybe change
         cfg['firebase_service_account_key_file'] = None     # at some point
@@ -147,10 +174,16 @@ class Cfg():
 
         # Environment
         if 'environment' in cp.sections():
-            if cp['environment'].get('db_uri'):
-                cfg['db_uri'] = cp['environment'].get('db_uri')
-            if cp['environment'].get('server_url'):
-                cfg['server_url'] = cp['environment'].get('server_url')
+            for (key, val) in cp.items('environment'):
+                if key == 'db_uri':
+                    cfg['db_uri'] = val
+                elif key == 'server_url':
+                    cfg['server_url'] = val
+                elif key == 'log_file':
+                    cfg['log_file'] = val
+                else:
+                    self.log_cfg(cp, ('WARNING: unexpected config entry "{}" i'
+                                      'n section [environment]'.format(key)))
 
         # API
         if 'api' in cp.sections():
@@ -180,21 +213,39 @@ class Cfg():
             if not valid_garbage:
                 fails.append(('garbage collection requires *both* interval and'
                               ' age to be set'))
+            # check for unexpected entries seperately b/c calculation of
+            # valid_garbage wouldn't work as nicely in a loop
+            for (key, val) in cp.items('api'):
+                if key not in ['api_path'
+                               'userdocs_added_properties',
+                               'garbage_collection_interval',
+                               'garbage_collection_age']:
+                    self.log_cfg(cp, ('WARNING: unexpected config entry "{}" i'
+                                      'n section [api]'.format(key)))
 
         # Firebase
         if 'firebase' in cp.sections():
-            if cp['firebase'].get('service_account_key_file'):
-                cfg['use_firebase'] = True
-                cfg['firebase_service_account_key_file'
-                    ] = cp['firebase'].get('service_account_key_file')
+            for (key, val) in cp.items('firebase'):
+                if key == 'service_account_key_file':
+                    cfg['use_firebase'] = True
+                    cfg['firebase_service_account_key_file'] = val
+                else:
+                    self.log_cfg(cp, ('WARNING: unexpected config entry "{}" i'
+                                      'n section [firebase]'.format(key)))
 
         # JSON-LD
         if 'json-ld' in cp.sections():
-            rwt = cp['json-ld'].get('rewrite_types', '')
-            rwt_list = [t.strip() for t in rwt.split(',') if len(t) > 0]
-            if len(rwt_list) > 0:
-                cfg['use_id_rewrite'] = True
-                cfg['id_rewrite_types'] = rwt_list
+            for (key, val) in cp.items('json-ld'):
+                if key == 'rewrite_types':
+                    rwt = cp['json-ld'].get('rewrite_types', '')
+                    rwt_list = [t.strip() for t in rwt.split(',')
+                                if len(t) > 0]
+                    if len(rwt_list) > 0:
+                        cfg['use_id_rewrite'] = True
+                        cfg['id_rewrite_types'] = rwt_list
+                else:
+                    self.log_cfg(cp, ('WARNING: unexpected config entry "{}" i'
+                                      'n section [json-ld]'.format(key)))
 
         # Activity stream prerequesites
         if 'activity_stream' in cp.sections() and \
@@ -224,6 +275,14 @@ class Cfg():
                 cfg['activity_generating_types'] = agt_list
             else:
                 fails.append(as_fail)
+            # check for unexpected entries seperately b/c above section is non
+            # trivial
+            for (key, val) in cp.items('activity_stream'):
+                if key not in ['collection_endpoint',
+                               'activity_generating_types']:
+                    self.log_cfg(cp,
+                                 ('WARNING: unexpected config entry "{}" i'
+                                  'n section [activity_stream]'.format(key)))
 
         if fails:
             fail = '\n'.join(fails)

@@ -1,3 +1,4 @@
+import datetime
 import json
 import re
 import uuid
@@ -9,6 +10,15 @@ from util.activity_stream import (ASOrderedCollection, ASOrderedCollectionPage,
                                   ActivityBuilder)
 from jsonkeeper.models import db, JSON_document
 from pyld import jsonld
+
+
+def log(msg):
+    """ Write a log message to the log file
+    """
+
+    timestamp = str(datetime.datetime.now()).split('.')[0]
+    with open(current_app.cfg.log_file(), 'a') as f:
+        f.write('[{}]   {}\n'.format(timestamp, msg))
 
 
 def acceptable_accept_mime_type(request):
