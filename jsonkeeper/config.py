@@ -226,7 +226,7 @@ class Cfg():
             # check for unexpected entries seperately b/c calculation of
             # valid_garbage wouldn't work as nicely in a loop
             for (key, val) in cp.items('api'):
-                if key not in ['api_path'
+                if key not in ['api_path',
                                'userdocs_added_properties',
                                'garbage_collection_interval',
                                'garbage_collection_age']:
