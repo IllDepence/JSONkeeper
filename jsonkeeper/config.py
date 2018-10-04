@@ -38,7 +38,17 @@ class Cfg():
         else:
             log_file = self._default_log_file()
         timestamp = str(datetime.datetime.now()).split('.')[0]
-        with open(log_file, 'a') as f:
+        # make /dev/stdout usable as log file
+        # https://www.bugs.python.org/issue27805
+        # side note: stat.S_ISCHR(os.stat(fn).st_mode) doesn't seem to work for
+        #            in an alpine linux docker container running canvas indexer
+        #            with gunicorn although manually executing it on a python shell
+        #            in the container works
+        if log_file == '/dev/stdout':
+            mode = 'w'
+        else:
+            mode = 'a'
+        with open(log_file, mode) as f:
             f.write('[{}]   {}\n'.format(timestamp, msg))
 
     def _default_log_file(self):
