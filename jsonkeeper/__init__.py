@@ -11,7 +11,7 @@ from pyld import jsonld
 from werkzeug.exceptions import default_exceptions, HTTPException
 from werkzeug.routing import BaseConverter
 from jsonkeeper.config import Cfg
-from jsonkeeper.subroutines import add_CORS_headers, collect_garbage
+from jsonkeeper.subroutines import add_CORS_headers, collect_garbage, log
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.interval import IntervalTrigger
 
@@ -20,9 +20,14 @@ def create_app(**kwargs):
     app = Flask(__name__)
     with app.app_context():
         app.cfg = Cfg()
+        startup_msg = 'starting'
         if kwargs:
             app.testing = True
             app.cfg.set_debug_config(**kwargs)
+            startup_msg += ' in testing mode with kwargs:'
+            for k, v in kwargs.items():
+                startup_msg += ' {}={}'.format(k, v)
+        log(startup_msg)
 
         class RegexConverter(BaseConverter):
             """ Make it possible to distinguish routes by <regex("[exampl]"):>.
@@ -37,8 +42,11 @@ def create_app(**kwargs):
         app.url_map.converters['regex'] = RegexConverter
 
         if app.cfg.use_frbs():
+            log('using Firebase')
             cred = firebase_admin.credentials.Certificate(app.cfg.frbs_conf())
             firebase_admin.initialize_app(cred)
+        else:
+            log('NOT using Firebase')
         app.config['SQLALCHEMY_DATABASE_URI'] = app.cfg.db_uri()
         app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
@@ -69,6 +77,7 @@ def create_app(**kwargs):
         app.register_blueprint(jk)
 
         if app.cfg.garbage_collection_interval() > 0:
+            log('initializing garbage collection')
             scheduler = BackgroundScheduler()
             scheduler.start()
             scheduler.add_job(

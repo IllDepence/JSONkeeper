@@ -7,6 +7,7 @@ import json
 import uuid
 from collections import OrderedDict
 from jsonkeeper.models import db, JSON_document
+from jsonkeeper.subroutines import log
 
 
 class ASWrapper():
@@ -103,7 +104,7 @@ class ASOrderedCollection(ASWrapper):
                 to_rem.prev.set_next(to_rem.next)
                 to_rem.next.set_prev(to_rem.prev)
         else:
-            print('WARNING: OrderedCollection structure is broken.')
+            log('WARNING: OrderedCollection structure is broken.')
         to_rem.unset_part_of()
         to_rem.unset_prev()
         to_rem.unset_next()
@@ -143,9 +144,9 @@ class ASOrderedCollection(ASWrapper):
                     break
                 cur = cur.prev
                 if not cur:
-                    print('WARNING: OrderedCollection structure is broken.')
+                    log('WARNING: OrderedCollection structure is broken.')
         else:
-            print('WARNING: OrderedCollection structure is broken.')
+            log('WARNING: OrderedCollection structure is broken.')
 
         self._update_dict()
         self.store()
@@ -262,6 +263,11 @@ class ASOrderedCollectionPage(ASWrapper):
                   Activities ended later endₚ>endₛ is consitently True or
                   consitently False.
         """
+
+        if type(other) is not ASOrderedCollectionPage:
+            log(('Unexpected parameter in ASOrderedCollectionPageafter instanc'
+                 'e\'s `after` method: type {}, value {}'
+                 '').format(type(other), other.__repr__()))
 
         return self.end_time() > other.end_time()
 

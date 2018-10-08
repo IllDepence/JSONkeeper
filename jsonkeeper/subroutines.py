@@ -6,8 +6,6 @@ from collections import OrderedDict
 from flask import abort, current_app, Response, url_for
 from firebase_admin import auth as firebase_auth
 from util.iiif import Curation
-from util.activity_stream import (ASOrderedCollection, ASOrderedCollectionPage,
-                                  ActivityBuilder)
 from jsonkeeper.models import db, JSON_document
 from pyld import jsonld
 
@@ -21,8 +19,8 @@ def log(msg):
     # make /dev/stdout usable as log file
     # https://www.bugs.python.org/issue27805
     # side note: stat.S_ISCHR(os.stat(fn).st_mode) doesn't seem to work for
-    #            in an alpine linux docker container running canvas indexer
-    #            with gunicorn although manually executing it on a python shell
+    #            an alpine linux docker container running JSONkeeper with
+    #            gunicorn although manually executing it on a python shell
     #            in the container works
     if fn == '/dev/stdout':
         mode = 'w'
@@ -30,6 +28,12 @@ def log(msg):
         mode = 'a'
     with open(fn, mode) as f:
         f.write('[{}]   {}\n'.format(timestamp, msg))
+
+
+# ASOrderedCollectionPage uses log function from above, therefore the wierd
+# import
+from util.activity_stream import (ASOrderedCollection, ASOrderedCollectionPage,
+                                  ActivityBuilder)
 
 
 def acceptable_accept_mime_type(request):
@@ -312,6 +316,11 @@ def _write_json__request_independent(json_string, json_id, access_token,
         json_doc.json_string = json_string
         db.session.commit()
 
+    log('posted/put document:')
+    log('    is JSON-LD: {}'.format(is_json_ld))
+    log('    received/has a dereferencable @id: {}'.format(id_change))
+    log('    is unlisted: {}'.format(unlisted))
+    log('    access token: {}'.format(access_token))
     if is_json_ld and \
             is_new_document and \
             id_change and \
