@@ -73,6 +73,13 @@ def create_app(**kwargs):
                                     else 500)
                 return add_CORS_headers(resp)
 
+        @app.after_request
+        def set_response_headers(response):
+            response.headers['Cache-Control'] = 'private, no-store, no-cache, must-revalidate'
+            # response.headers['Pragma'] = 'no-cache'
+            # response.headers['Expires'] = '0'
+            return response
+
         from jsonkeeper.views import jk
         app.register_blueprint(jk)
 

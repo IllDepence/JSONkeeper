@@ -265,8 +265,8 @@ class ASOrderedCollectionPage(ASWrapper):
         """
 
         if type(other) is not ASOrderedCollectionPage:
-            log(('Unexpected parameter in ASOrderedCollectionPageafter instanc'
-                 'e\'s `after` method: type {}, value {}'
+            log(('Unexpected parameter in ASOrderedCollectionPage instance\'s '
+                 '`after` method: type {}, value {}'
                  '').format(type(other), other.__repr__()))
 
         return self.end_time() > other.end_time()
