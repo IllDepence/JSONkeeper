@@ -73,10 +73,22 @@ class ASOrderedCollection(ASWrapper):
         """
 
         self.dic = json.loads(col_json, object_pairs_hook=OrderedDict)
+        # load all the AS pages from JSON into page objects
         for pd in page_docs:
             page = ASOrderedCollectionPage(None, pd.id)
-            page.from_json(pd.json_string)
-            self.add(page)
+            page.dic = json.loads(pd.json_string,
+                                  object_pairs_hook=OrderedDict)
+            page.part_of = self
+            self.page_map[page.dic['id']] = page
+        # recreate links between the page objects
+        for ld_id, po in self.page_map.items():
+            if po.dic.get('prev'):
+                po.prev = self.get_page_by_id(po.dic['prev']['id'])
+            if po.dic.get('next'):
+                po.next = self.get_page_by_id(po.dic['next']['id'])
+        # send page objects through add procedure
+        for ld_id, po in self.page_map.items():
+            self.add(po)
 
     def get_page_by_id(self, ld_id):
         """ Get the page from this collection identified by the given JSON-LD
@@ -184,8 +196,8 @@ class ASOrderedCollectionPage(ASWrapper):
                             'on')]
         cop['type'] = 'OrderedCollectionPage'
         cop['id'] = ld_id
-        cop['summary'] = ('Activities generated based on the creation of one '
-                          'Curation')
+        cop['summary'] = ('Activities generated for a signular action on a Cur'
+                          'ation (creation/change/deletion).')
         cop['partOf'] = None
         # cop['prev']
         # cop['next']
@@ -194,14 +206,6 @@ class ASOrderedCollectionPage(ASWrapper):
         self.part_of = None
         self.prev = None
         self.next = None
-
-    def from_json(self, json_str):
-        self.dic = json.loads(json_str, object_pairs_hook=OrderedDict)
-        self.part_of = self.dic['partOf']
-        if self.dic.get('prev'):
-            self.prev = self.dic['prev']['id']
-        if self.dic.get('next'):
-            self.next = self.dic['next']['id']
 
     def set_part_of(self, col):
         self.part_of = col
