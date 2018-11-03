@@ -4,9 +4,7 @@ from jsonkeeper.subroutines import (
     acceptable_content_type,
     CORS_preflight_response,
     add_CORS_headers,
-    get_access_token,
     get_JSON_string_by_ID,
-    get_JSON_metadata_by_ID,
     get_actstr_collection_pages,
     get_actstr_collection,
     handle_post_request,
@@ -136,8 +134,10 @@ def api_json_id_range(json_id, r_num):
         return abort(404, 'JSON document with ID {} not found'.format(json_id))
 
 
-@jk.route('/{}/<regex("{}"):json_id>/status'.format(current_app.cfg.api_path(),
-                                              current_app.cfg.doc_id_patt()),
+@jk.route('/{}/<regex("{}"):json_id>/status'.format(
+                current_app.cfg.api_path(),
+                current_app.cfg.doc_id_patt()
+                ),
           methods=['GET', 'PATCH', 'OPTIONS'])
 def api_json_id_status(json_id):
     """ API endpoint for retrieving and changing JSON documents' metadata.

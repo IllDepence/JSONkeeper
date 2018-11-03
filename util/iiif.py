@@ -2,7 +2,6 @@
 """
 
 import json
-import uuid
 from collections import OrderedDict
 
 
@@ -120,7 +119,6 @@ class Curation():
                        '>>> {}'.format(json.dumps(w))))
             ret_lst.append(dic)
             ret_dic[dic['ran']] = dic['man']
-        import pprint
         return ret_lst, ret_dic
 
     def _extract_manifest_id(self, dic):

@@ -75,7 +75,8 @@ def create_app(**kwargs):
 
         @app.after_request
         def set_response_headers(response):
-            response.headers['Cache-Control'] = 'private, no-store, no-cache, must-revalidate'
+            response.headers['Cache-Control'] = ('private, no-store, no-cache,'
+                                                 ' must-revalidate')
             # response.headers['Pragma'] = 'no-cache'
             # response.headers['Expires'] = '0'
             return response

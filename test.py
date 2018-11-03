@@ -429,7 +429,7 @@ class JkTestCase(unittest.TestCase):
                                 headers={'Accept': 'application/json',
                                          'Content-Type': 'application/json',
                                          'X-Access-Token': 'foo',
-                                         'X-Unlisted':'true'},
+                                         'X-Unlisted': 'true'},
                                 data='{"baz":"bam"}')
             location = resp.headers.get('Location')
             resp = self.tc.get('{}/status'.format(location),
@@ -458,7 +458,7 @@ class JkTestCase(unittest.TestCase):
             resp = self.tc.post('/{}'.format(self.app.cfg.api_path()),
                                 headers={'Accept': 'application/json',
                                          'Content-Type': 'application/ld+json',
-                                         'X-Unlisted':'false'},
+                                         'X-Unlisted': 'false'},
                                 data=curation_json)
             resp = self.tc.get('/{}'.format(self.app.cfg.as_coll_url()))
             self.assertEqual(resp.status, '404 NOT FOUND')
@@ -476,7 +476,7 @@ class JkTestCase(unittest.TestCase):
             resp = self.tc.post('/{}'.format(self.app.cfg.api_path()),
                                 headers={'Accept': 'application/json',
                                          'Content-Type': 'application/ld+json',
-                                         'X-Unlisted':'true'},
+                                         'X-Unlisted': 'true'},
                                 data=curation_json)
 
             resp = self.tc.get('/{}'.format(self.app.cfg.as_coll_url()))
@@ -487,7 +487,7 @@ class JkTestCase(unittest.TestCase):
                                 headers={'Accept': 'application/json',
                                          'Content-Type': 'application/ld+json',
                                          'X-Access-Token': 'foo',
-                                         'X-Unlisted':'false'},
+                                         'X-Unlisted': 'false'},
                                 data=curation_json)
             location = resp.headers.get('Location')
 
@@ -507,6 +507,7 @@ class JkTestCase(unittest.TestCase):
             json_obj = json.loads(resp.data.decode('utf-8'))
             # a Delete Action should have been added
             self.assertEqual(json_obj.get('totalItems'), 2)
+
 
 if __name__ == '__main__':
     unittest.main()

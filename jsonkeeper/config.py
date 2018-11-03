@@ -42,8 +42,8 @@ class Cfg():
         # https://www.bugs.python.org/issue27805
         # side note: stat.S_ISCHR(os.stat(fn).st_mode) doesn't seem to work for
         #            in an alpine linux docker container running canvas indexer
-        #            with gunicorn although manually executing it on a python shell
-        #            in the container works
+        #            with gunicorn although manually executing it on a python
+        #            shell in the container works
         if log_file == '/dev/stdout':
             mode = 'w'
         else:

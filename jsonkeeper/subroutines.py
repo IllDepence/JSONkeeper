@@ -715,7 +715,7 @@ def remove_document_from_actstr(to_rem_id):
         only the first AS page with a matching activity is deleted.
     """
 
-    return # currently not used because Delete Activities were introduced
+    return  # currently not used because Delete Activities were introduced
 
     coll_json = get_actstr_collection()
     if coll_json:
