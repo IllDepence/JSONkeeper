@@ -16,6 +16,9 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.interval import IntervalTrigger
 
 
+__version__ = '1.0.0'
+
+
 def create_app(**kwargs):
     app = Flask(__name__)
     with app.app_context():
