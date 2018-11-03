@@ -758,14 +758,14 @@ def collect_garbage():
     # make DB accessible
     from flask import Flask
     app = Flask(__name__)
-    app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///keep.db'
-    app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
     with app.app_context():
         from jsonkeeper.models import db, JSON_document
         from jsonkeeper.config import Cfg
         from sqlalchemy import select
         from sqlalchemy.sql import func
         cfg = Cfg()
+        app.config['SQLALCHEMY_DATABASE_URI'] = cfg.db_uri()
+        app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
         db.init_app(app)
 
         # surely not the cleanest way to get the current DB time
