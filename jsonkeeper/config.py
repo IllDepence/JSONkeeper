@@ -12,12 +12,12 @@ class Cfg():
 
     def __init__(self, path='config.ini'):
         cp = configparser.ConfigParser()
-        if not os.path.exists(path):
-            msg = 'Config file "{}" not found. Exiting.'.format(path)
+        if os.path.exists(path):
+            cp.read(path)
+        else:
+            msg = 'Config file "{}" not found. Using defaults.'.format(path)
             print(msg)
             self.log_cfg(None, msg)
-            sys.exit(1)
-        cp.read(path)
         fail, cfg = self._parse_config(cp)
         if fail:
             msg = '{} Exiting.'.format(fail)
