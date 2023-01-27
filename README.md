@@ -16,6 +16,7 @@ A flask web application for storing JSON documents; with some special functions 
 ## Setup
 * create virtual environment: `$ python3 -m venv venv`
 * activate virtual environment: `$ source venv/bin/activate`
+* ensure up to date pip version: `pip install --upgrade pip`
 * install requirements: `$ pip install -r requirements.txt`
 * depending on the type of database you are going to use, you might need to install an additional Python database driver (see [SQLAlchemy supported databases](http://docs.sqlalchemy.org/en/latest/core/engines.html#supported-databases))
 
